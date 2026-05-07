@@ -23,7 +23,7 @@ web.log
 !PDMS2_web/images/icons/
 !PDMS2_web/images/icons/*.png
 !PDMS2_web/images/icons/*.jpg
-
+!PDMS2_web/pictures/
 
 # --- 開發環境與系統檔案 ---
 # macOS Finder metadata
