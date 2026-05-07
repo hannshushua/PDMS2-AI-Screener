@@ -14,6 +14,7 @@ from werkzeug.exceptions import HTTPException
 import time
 import pymysql
 from urllib.parse import urlencode, urlparse
+import re
 
 print("====== CURRENT ADMIN SERVER IS RUNNING (PORT 8001) ======")
 
@@ -165,6 +166,20 @@ def sign_image(uid: str, filename: str) -> str:
     ).hexdigest()
 
 
+def _extract_multi_view_base(filename: str, fallback: str = "") -> str:
+    """從帶時間戳的多視角檔名中提取基底（去除 -side/-top/-side_result/-top_result 後綴）。
+
+    例：
+        'ch1-t3_20260507_233320-side.jpg'        → 'ch1-t3_20260507_233320'
+        'ch1-t3_20260507_233320-side_result.jpg' → 'ch1-t3_20260507_233320'
+        'Ch1-t3-side_result.jpg'                 → 'Ch1-t3'  (無時間戳也能處理)
+    """
+    stem = Path(filename).stem  # 去掉副檔名
+    base = re.sub(r'-(side|top)(_result)?$', '', stem, flags=re.IGNORECASE)
+    # 若 sub 沒有任何替換（沒找到 -side/-top），base == stem，直接回傳 fallback
+    return base if base != stem else (fallback or stem)
+
+
 def _resolve_image_filename(uid: str, filename: str) -> str:
     """優先使用原檔名；若不存在則嘗試小寫檔名。"""
     candidate_path = DATA_ROOT / uid / filename
@@ -291,10 +306,34 @@ def view_compare():
 
     content_html = ""
     if is_multi:
-        side_orig = build_signed_image_url(uid, f"{task_id}-side.jpg")
-        side_res = build_signed_image_url(uid, f"{task_id}-side_result.jpg")
-        top_orig = build_signed_image_url(uid, f"{task_id}-top.jpg")
-        top_res = build_signed_image_url(uid, f"{task_id}-top_result.jpg")
+        # ── 取得帶時間戳的真實基底名稱 ──────────────────────────────────────
+        # 優先從 URL 參數 img（scores 列表頁傳來的已簽名 URL）中提取
+        view_base = task_id  # fallback
+        img_uid, img_filename = extract_uid_filename(img_path)
+        if img_uid == uid and img_filename:
+            view_base = _extract_multi_view_base(img_filename, task_id)
+        else:
+            # img_path 沒資訊，改查資料庫取得最新的 result_img_path
+            try:
+                table = task_id_to_table(task_id)
+                row = db_exec(
+                    f"SELECT result_img_path FROM `{table}` WHERE uid=%s "
+                    f"ORDER BY test_date DESC, time DESC LIMIT 1",
+                    (uid,),
+                    fetch="one",
+                )
+                db_path = (row or {}).get("result_img_path") or ""
+                _, db_filename = extract_uid_filename(db_path)
+                if db_filename:
+                    view_base = _extract_multi_view_base(db_filename, task_id)
+            except Exception:
+                pass
+        # ────────────────────────────────────────────────────────────────────
+
+        side_orig = build_signed_image_url(uid, f"{view_base}-side.jpg")
+        side_res  = build_signed_image_url(uid, f"{view_base}-side_result.jpg")
+        top_orig  = build_signed_image_url(uid, f"{view_base}-top.jpg")
+        top_res   = build_signed_image_url(uid, f"{view_base}-top_result.jpg")
         content_html = f"""
         <div class=\"section-title\">側面視角 (Side View)</div>
         <div class=\"row\">
