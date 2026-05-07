@@ -4,14 +4,6 @@ PDMS2_web/console.txt
 web.log
 /PDMS2_web/console.txt
 
-# 忽略大型模型檔案 (.h5, .pth, .onnx)
-*.h5
-*.pth
-*.onnx
-best_model.pth
-PDMS2_web/ch2-t1/model/
-PDMS2_web/ch2-t2/model/
-PDMS2_web/ch2-t3/model/
 
 # --- 媒體檔案處理 (預設忽略，特定追蹤) ---
 *.mp4
