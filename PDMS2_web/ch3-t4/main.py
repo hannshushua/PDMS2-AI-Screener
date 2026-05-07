@@ -274,19 +274,27 @@ if __name__ == "__main__":
         # img_id = "ch3-t3"
         image_path = os.path.join("kid", uid, f"{img_id}.jpg")
         result_path = os.path.join("kid", uid, f"{img_id}_result.jpg")
+    else:
+        return_score(-1)
+
+    score = -1
 
     # image_path = rf"PDMS2_web\kid\1125\ch3-t4.jpg"
     # result_path = rf"PDMS2_web\kid\1125\ch3-t4_result.jpg"
-    # 執行主程式
-    if os.path.exists(image_path):
-        # 步驟一：計算與判定
-        result, score = judge_score(image_path, STANDARD_AREA)
+    try:
+        # 執行主程式
+        if os.path.exists(image_path):
+            # 步驟一：計算與判定
+            result, score = judge_score(image_path, STANDARD_AREA)
 
-        # 步驟二：顯示結果
-        result_img = show_result(result)
-        cv2.imwrite(result_path, result_img)
+            # 步驟二：顯示結果
+            result_img = show_result(result)
+            cv2.imwrite(result_path, result_img)
 
-    else:
-        print("找不到檔案")
+        else:
+            print("找不到檔案")
+    except Exception as e:
+        print(f"[ERROR] ch3-t4 執行失敗: {e}")
+        score = -1
 
     return_score(score)

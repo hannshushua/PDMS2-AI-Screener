@@ -31,7 +31,7 @@ try:
     print("[DEBUG] YOLO 模型加載完成", flush=True)
 except Exception as e:
     print(f"[ERROR] YOLO 模型加載失敗：{e}", flush=True)
-    sys.exit(1)
+    sys.exit(-1)
 
 # 初始化 SAM
 try:
@@ -41,7 +41,7 @@ try:
     print("[DEBUG] SAM 模型加載完成", flush=True)
 except Exception as e:
     print(f"[ERROR] SAM 模型加載失敗：{e}", flush=True)
-    sys.exit(1)
+    sys.exit(-1)
 
 def return_score(score):
     sys.exit(int(score))
@@ -191,7 +191,7 @@ if __name__ == "__main__":
         SIDE_PATH = os.path.join("kid", uid, f"{img_id}-side.jpg")
         TOP_PATH = os.path.join("kid", uid, f"{img_id}-top.jpg")
     else:
-        print("缺少參數 uid, img_id", flush=True); sys.exit(1)
+        print("缺少參數 uid, img_id", flush=True); sys.exit(-1)
 
     try:
         print(f"[DEBUG] 分析側視圖: {SIDE_PATH}", flush=True)
@@ -207,4 +207,4 @@ if __name__ == "__main__":
         print(f"Final Score: {final}", flush=True)
         return_score(final)
     except Exception as e:
-        print(f"[ERROR] 執行失敗: {e}", flush=True); return_score(0)
+        print(f"[ERROR] 執行失敗: {e}", flush=True); return_score(-1)

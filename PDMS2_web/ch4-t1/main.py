@@ -77,7 +77,7 @@ def main():
     # 檢查是否由外部傳入 uid 和 img_id
     if len(sys.argv) <= 2:
         print("❌ 請提供 uid 與 img_id (例如: python script.py user123 img001)")
-        return_score(0)
+        return_score(-1)
 
     uid = sys.argv[1]
     img_id = sys.argv[2]
@@ -88,7 +88,7 @@ def main():
 
     if not os.path.exists(input_image):
         print(f"❌ 找不到圖片檔案：{input_image}")
-        return_score(0)
+        return_score(-1)
 
     print("⏳ 正在載入 YOLO 模镸...")
     try:
@@ -96,19 +96,19 @@ def main():
         px2cm = _read_db_config("PDMS2_PX2CM", 16.70) # 載入比例尺
     except Exception as e:
         print(f"❌ 載入失敗: {e}")
-        return_score(0)
+        return_score(-1)
 
     print(f"\n🖼️ 正在處理: {input_image}")
     
     img_cv = cv2.imread(input_image)
     if img_cv is None: 
         print("❌ 無法讀取圖片")
-        return_score(0)
+        return_score(-1)
     
     # --- 預測開始 ---
     results = yolo(input_image, conf=0.7, verbose=False) 
     res_img = img_cv.copy() 
-    final_score = 0 # 預設分數為 0
+    final_score = -1 # 預設分數為 -1
     
     if results[0].masks is not None:
         # 只取第一個(或最大的)遮罩來計算，避免多重干擾
@@ -136,17 +136,17 @@ def main():
             cv2.putText(res_img, f"Max Err: {err}cm", (50, 110), cv2.FONT_HERSHEY_SIMPLEX, 0.8, color, 2)
             cv2.putText(res_img, f"Sides: {side_cm}", (50, 150), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
         else:
-            final_score = 0
+            final_score = -1
             color = (0, 0, 255) # 0分顯示紅色
-            cv2.putText(res_img, "Score: 0", (50, 60), cv2.FONT_HERSHEY_SIMPLEX, 1.2, color, 3)
+            cv2.putText(res_img, "Score: -1", (50, 60), cv2.FONT_HERSHEY_SIMPLEX, 1.2, color, 3)
             cv2.putText(res_img, f"Reason: Detected {len(approx_for_score)} pts", (50, 110), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
 
         # ✨ 畫出「滑順版」的邊緣輪廓，線條粗細為 2，並套用剛剛判定的顏色！
         cv2.polylines(res_img, [smooth_pts], isClosed=True, color=color, thickness=2)
             
     else:
-        final_score = 0
-        cv2.putText(res_img, "Score: 0", (50, 60), cv2.FONT_HERSHEY_SIMPLEX, 1.2, (0, 0, 255), 3)
+        final_score = -1
+        cv2.putText(res_img, "Score: -1", (50, 60), cv2.FONT_HERSHEY_SIMPLEX, 1.2, (0, 0, 255), 3)
         cv2.putText(res_img, "Reason: No Target Detected", (50, 110), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
 
     # 存檔
@@ -158,4 +158,8 @@ def main():
     return_score(final_score)
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception as e:
+        print(f"[ERROR] ch4-t1 執行失敗: {e}")
+        return_score(-1)

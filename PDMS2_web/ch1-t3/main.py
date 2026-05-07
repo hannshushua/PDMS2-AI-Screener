@@ -24,7 +24,7 @@ try:
     from LayerGrouping import LayerGrouping
 except ImportError as e:
     print(f"[ERROR] 缺少側視圖分析所需的模組：{e}")
-    sys.exit(1)
+    sys.exit(-1)
 
 # ================== 模型與環境設定 ==================
 device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -42,7 +42,7 @@ try:
     print("[DEBUG] YOLO 模型加載完成", flush=True)
 except Exception as e:
     print(f"[ERROR] YOLO 模型加載失敗：{e}", flush=True)
-    sys.exit(1)
+    sys.exit(-1)
 
 # 初始化 SAM
 try:
@@ -52,7 +52,7 @@ try:
     print("[DEBUG] SAM 模型加載完成", flush=True)
 except Exception as e:
     print(f"[ERROR] SAM 模型加載失敗：{e}", flush=True)
-    sys.exit(1)
+    sys.exit(-1)
 
 MODE_SIDE = 0  # 0 = 階梯, 1 = 金字塔
 
@@ -206,7 +206,7 @@ if __name__ == "__main__":
 
     if len(sys.argv) <= 2:
         print("缺少參數 uid, img_id")
-        sys.exit(1)
+        sys.exit(-1)
         
     uid, img_id = sys.argv[1], sys.argv[2]
     SIDE_IMG_PATH = os.path.join("kid", uid, f"{img_id}-side.jpg")
@@ -240,4 +240,4 @@ if __name__ == "__main__":
         print(f"[ERROR] 執行出錯: {e}")
         import traceback
         traceback.print_exc()
-        return_score(0)
+        return_score(-1)

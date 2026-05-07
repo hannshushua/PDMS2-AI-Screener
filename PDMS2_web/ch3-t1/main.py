@@ -10,8 +10,8 @@ def return_score(score):
 
 
 if __name__ == "__main__":
-    # 預設失敗分數，任何流程失敗都回傳 0
-    score = 0
+    # 預設失敗分數，任何流程失敗都回傳 -1
+    score = -1
 
     # 檢查是否有傳入 uid 與 id
     if len(sys.argv) <= 2:
@@ -76,7 +76,7 @@ if __name__ == "__main__":
                 print(f"kid = {kid:.2f}, score = 0")
                 score = 0
         else:
-            print("裁切或距離分析失敗，score = 0")
+            print("裁切或距離分析失敗，score = -1")
     except Exception as e:
         print(f"流程執行失敗: {e}")
 

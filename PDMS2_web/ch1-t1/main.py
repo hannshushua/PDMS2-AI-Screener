@@ -32,7 +32,7 @@ try:
     print("[DEBUG] YOLO 模型加載完成", flush=True)
 except Exception as e:
     print(f"[ERROR] YOLO 模型加載失敗：{e}", flush=True)
-    sys.exit(1)
+    sys.exit(-1)
 
 # 2. SAM 模型 (用於精細分割)
 SAM_CHECKPOINT = BASE_DIR / "sam_vit_b_01ec64.pth"
@@ -44,7 +44,7 @@ try:
     print("[DEBUG] SAM 模型加載完成", flush=True)
 except Exception as e:
     print(f"[ERROR] SAM 模型加載失敗：{e}", flush=True)
-    sys.exit(1)
+    sys.exit(-1)
 
 def return_score(score):
     sys.exit(int(score))
@@ -185,7 +185,7 @@ if __name__ == "__main__":
         print(f"[DEBUG] 圖片路徑：{image_path}", flush=True)
     else:
         print("請提供 uid 和 img_id 參數", flush=True)
-        sys.exit(0)
+        sys.exit(-1)
 
     try:
         print("[DEBUG] 開始分析圖片...", flush=True)
@@ -200,4 +200,4 @@ if __name__ == "__main__":
         return_score(score)
     except Exception as e:
         print(f"[ERROR] 執行過程中出錯：{e}", flush=True)
-        sys.exit(1)
+        return_score(-1)

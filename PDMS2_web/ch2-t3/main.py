@@ -174,7 +174,7 @@ def read_all_images_from_folder(folder_path):
 def main(img_path):
     # ==參數==#
     real_width_cm = 29.7
-    SCORE = 0
+    SCORE = -1
 
     CLASS_NAMES = ["cross", "other"]
 
@@ -217,7 +217,7 @@ def main(img_path):
     except ValueError as e:
         img = cv2.imread(img_path)
         print(f"⚠️ 跳過 {img_path}：{e}")
-        return 0, img
+        return -1, img
 
     
     # 參數要改
@@ -279,12 +279,19 @@ if __name__ == "__main__":
         img_id = sys.argv[2]
         # image_path = rf"kid\{uid}\{img_id}.jpg"
         image_path = os.path.join('kid',uid, f"{img_id}.jpg")
+    else:
+        return_score(-1)
     # img_path = r'S__75628564.jpg'
     # image_path = r'ch2-t3.jpg'
-    score, result_img = main(image_path)
+    try:
+        score, result_img = main(image_path)
 
-    result_path = os.path.join('kid',uid, f"{img_id}_result.jpg")
-    cv2.imwrite(result_path, result_img)
-    # cv2.imwrite(rf"result.jpg", result_img)
-    print(score)
-    return_score(score)
+        result_path = os.path.join('kid',uid, f"{img_id}_result.jpg")
+        if result_img is None:
+            result_img = cv2.imread(image_path)
+        cv2.imwrite(result_path, result_img)
+        print(score)
+        return_score(score)
+    except Exception as e:
+        print(f"[ERROR] ch2-t3 執行失敗: {e}")
+        return_score(-1)

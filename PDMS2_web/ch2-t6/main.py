@@ -102,7 +102,7 @@ def main():
         cropped_path = os.path.join(BASE_DIR.parent, "kid", uid, f"{img_id}_cropped.jpg")
     else:
         print("參數不足，用法：python main.py <uid> <img_id>", file=sys.stderr)
-        return_score(0)
+        return_score(-1)
 
     # 1. 呼叫 get_cm1 進行裁切
     print("開始執行 AI 裁切...")
@@ -110,13 +110,13 @@ def main():
     
     if not crop_success:
         print("裁切失敗，無法進行後續評分", file=sys.stderr)
-        return_score(0)
+        return_score(-1)
 
     # 2. 讀取裁切完成的圖片進行計分
     img = cv2.imread(cropped_path)
     if img is None:
         print(f"圖片讀取失敗：{cropped_path}", file=sys.stderr)
-        return_score(0)
+        return_score(-1)
 
     # 載入紅線計分 AI 模型
     device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -127,13 +127,13 @@ def main():
         model.to(device).eval()
     else:
         print(f"找不到紅線模型檔案：{LINE_MODEL_PATH}", file=sys.stderr)
-        return_score(0)
+        return_score(-1)
 
     # 分析邏輯
     red_points, skel_red = get_red_line_skeleton(img, model, device)
     dot1, dot2 = get_two_dots_coords(img)
     
-    score = 0
+    score = -1
     result_img = img.copy()
 
     if red_points and dot1 and dot2:
@@ -163,4 +163,8 @@ def main():
     return_score(score)
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception as e:
+        print(f"[ERROR] ch2-t6 執行失敗: {e}", file=sys.stderr)
+        return_score(-1)

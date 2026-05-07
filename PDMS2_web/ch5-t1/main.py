@@ -181,7 +181,7 @@ def main(CAMERA_INDEX, VIDEO_PATH, UID):
         cv2.destroyAllWindows()
         ser.close()
 
-    return 0 if SCORE == -1 else SCORE
+    return SCORE
 
 if __name__ == "__main__":
     # 流程完全一致：接收參數

@@ -18,7 +18,7 @@ def main():
     # 1. 接收參數
     if len(sys.argv) < 3:
         print("Usage: python main.py [uid] [task_id]")
-        sys.exit(0)
+        sys.exit(-1)
 
     uid = sys.argv[1]
     img_id = sys.argv[2] # 例如 "Ch2-t5"
@@ -33,7 +33,7 @@ def main():
 
     if not src_path.exists():
         print(f"[Error] 檔案不存在: {src_path}")
-        sys.exit(0)
+        sys.exit(-1)
 
     # 2. 裁切 A4 紙
     # 注意：get_pixel_per_cm_from_a4 現在只回傳圖片，不存檔
@@ -57,7 +57,7 @@ def main():
         score, result_img = analyze_paint(warped, y_top, y_bot)
     except Exception as e:
         print(f"[Error] 分析過程發生錯誤: {e}")
-        score = 0
+        score = -1
         result_img = warped
 
     # 5. 儲存結果圖 (這一步最重要！)
@@ -76,4 +76,8 @@ def main():
     sys.exit(score)
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception as e:
+        print(f"[Error] ch2-t5 執行失敗: {e}")
+        sys.exit(-1)

@@ -303,6 +303,7 @@ def main(img_path):
         print(f"{img_path} pixel_per_cm = {pixel_per_cm}")
     except ValueError as e:
         print(f"⚠️ 跳過 {img_path}：{e}")
+        return -1, cv2.imread(img_path)
 
     # cm_per_pixel = 1 / pixel_per_cm
     # actual_length_cm = 7.5
@@ -356,9 +357,16 @@ if __name__ == "__main__":
         # uid = "lull222"
         # img_id = "ch3-t1"
         image_path = os.path.join("kid", uid, f"{img_id}.jpg")
+    else:
+        return_score(-1)
     # image_path = r"ch2-t2.jpg"
-    score, result_img = main(image_path)
-    cv2.imwrite(os.path.join("kid", uid, f"{img_id}_result.jpg"), result_img)
-    # cv2.imwrite(rf"result.jpg", result_img)
-    print(f"score = {score}")
-    return_score(score)
+    try:
+        score, result_img = main(image_path)
+        if result_img is None:
+            result_img = cv2.imread(image_path)
+        cv2.imwrite(os.path.join("kid", uid, f"{img_id}_result.jpg"), result_img)
+        print(f"score = {score}")
+        return_score(score)
+    except Exception as e:
+        print(f"[ERROR] ch2-t2 執行失敗: {e}")
+        return_score(-1)

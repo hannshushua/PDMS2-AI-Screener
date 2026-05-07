@@ -112,11 +112,20 @@ if __name__ == "__main__":
         # img_id = "ch3-t3"
         image_path = os.path.join("kid", uid, f"{img_id}.jpg")
         result_path = os.path.join("kid", uid, f"{img_id}_result.jpg")
+    else:
+        return_score(-1)
 
     # image_path = rf"PDMS2_web\kid\1125\ch3-t3.jpg"
     # result_path = rf"PDMS2_web\kid\1125\ch3-t3_result.jpg"
     # 執行主程式
-    success, score, result_img = process_single_image(image_path)
-
-    cv2.imwrite(result_path, result_img)
-    return_score(score)
+    try:
+        success, score, result_img = process_single_image(image_path)
+        if not success:
+            return_score(-1)
+        if result_img is None:
+            result_img = cv2.imread(image_path)
+        cv2.imwrite(result_path, result_img)
+        return_score(score)
+    except Exception as e:
+        print(f"[ERROR] ch3-t3 執行失敗: {e}")
+        return_score(-1)

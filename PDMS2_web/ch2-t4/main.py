@@ -127,7 +127,7 @@ def main():
     pixel_per_cm = _read_db_config("PDMS2_PX2CM", DEFAULT_PX2CM)
     if pixel_per_cm <= 0:
         print(".env 內的 PDMS2_PX2CM 非正值", file=sys.stderr)
-        return_score(0)
+        return_score(-1)
 
     # ========= 2) 解析參數（與其他關卡介面一致） =========
     if len(sys.argv) > 2:
@@ -136,17 +136,17 @@ def main():
         image_path = os.path.join("kid", uid, f"{img_id}.jpg")
     else:
         print("參數不足，需要 uid 與 img_id", file=sys.stderr)
-        return_score(0)
+        return_score(-1)
 
     if not os.path.exists(image_path):
         print(f"找不到圖片：{image_path}", file=sys.stderr)
-        return_score(0)
+        return_score(-1)
 
     # ========= 3) 讀影像 =========
     img = cv2.imread(image_path)
     if img is None:
         print(f"圖片讀取失敗：{image_path}", file=sys.stderr)
-        return_score(0)
+        return_score(-1)
 
     # ========= 4) 分析（盡量相容：優先取回 (score, result_img)） =========
     result_img = None
@@ -178,4 +178,8 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception as e:
+        print(f"[ERROR] ch2-t4 執行失敗: {e}", file=sys.stderr)
+        return_score(-1)
