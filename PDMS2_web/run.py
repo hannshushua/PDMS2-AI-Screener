@@ -319,6 +319,7 @@ def _settings_to_remote_row(settings: dict) -> dict:
     payload = _get_machine_identity_payload()
     payload.update(
         {
+            "machine_name": payload.get("hostname", "machine"),
             "top_camera_index": int(settings.get("top", 0)),
             "side_camera_index": int(settings.get("side", 0)),
             "roi_x": int(settings.get("roi_x", 0)),
@@ -341,6 +342,7 @@ def _sync_machine_config_to_remote(settings: dict) -> dict:
     machine_sql = """
         INSERT INTO machine_configs (
             machine_id,
+            machine_name,
             hostname,
             top_camera_index,
             side_camera_index,
@@ -354,6 +356,7 @@ def _sync_machine_config_to_remote(settings: dict) -> dict:
             created_at
         ) VALUES (
             %(machine_id)s,
+            %(machine_name)s,
             %(hostname)s,
             %(top_camera_index)s,
             %(side_camera_index)s,
