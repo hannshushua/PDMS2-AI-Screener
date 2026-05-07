@@ -36,6 +36,7 @@ def _read_env_file(path: Path = ENV_PATH) -> dict:
     return values
 
 _env = _read_env_file()
+DATA_ROOT = Path(_env.get("PDMS_DATA_ROOT", "/Applications/XAMPP/xamppfiles/htdocs/PDMS")).expanduser()
 
 DB = dict(
     host=_env.get("DB_HOST", "100.117.109.112"),
@@ -164,7 +165,21 @@ def sign_image(uid: str, filename: str) -> str:
     ).hexdigest()
 
 
+def _resolve_image_filename(uid: str, filename: str) -> str:
+    """優先使用原檔名；若不存在則嘗試小寫檔名。"""
+    candidate_path = DATA_ROOT / uid / filename
+    if candidate_path.exists():
+        return filename
+
+    lower_name = filename.lower()
+    if lower_name != filename and (DATA_ROOT / uid / lower_name).exists():
+        return lower_name
+
+    return filename
+
+
 def build_signed_image_url(uid: str, filename: str) -> str:
+    filename = _resolve_image_filename(uid, filename)
     sig = sign_image(uid, filename)
     return f"{MACWEB_BASE_URL}/images/{uid}/{filename}?sig={sig}"
 
