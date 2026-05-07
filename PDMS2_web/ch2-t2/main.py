@@ -340,7 +340,7 @@ def main(img_path):
                     2,
                 )
                 save_path = other_dir / os.path.basename(url)
-                cv2.imwrite(save_path, img)  # 直接存檔，不用手動關視窗
+                cv2.imwrite(str(save_path), img)  # 直接存檔，不用手動關視窗
                 print(f"{url} 已存入 Other 資料夾並加上標記")
 
     SGA = SquareGapAnalyzer()
