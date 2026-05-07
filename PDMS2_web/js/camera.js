@@ -107,6 +107,23 @@ function goHome() {
     window.location.href = "/html/index.html";
 }
 
+const TASK_ORDER = [
+  "ch1-t1","ch1-t2","ch1-t3","ch1-t4",
+  "ch2-t1","ch2-t2","ch2-t3","ch2-t4","ch2-t5","ch2-t6",
+  "ch3-t1","ch3-t2","ch3-t3","ch3-t4",
+  "ch4-t1","ch4-t2",
+  "ch5-t1"
+];
+
+function goNext() {
+  const idx = TASK_ORDER.indexOf(id);
+  if (idx !== -1 && idx < TASK_ORDER.length - 1) {
+    window.location.href = `/html/task.html?id=${encodeURIComponent(TASK_ORDER[idx + 1])}`;
+  } else {
+    goHome();
+  }
+}
+
 function updateStatus(message, type = 'info') {
   els.statusInfo.textContent = message;
   els.statusInfo.className = `status-info ${type}`;
@@ -138,7 +155,7 @@ function updateStatus(message, type = 'info') {
       els.placeholderText.textContent = '遊戲準備中...';
     }
   } else {
-      els.shotBtn.textContent = "🎞️ 拍照、存檔並回主頁"; 
+      els.shotBtn.textContent = "🎞️ 拍照、存檔並進下一關"; 
   }
 })();
 
@@ -421,9 +438,9 @@ async function takeShot() {
       await triggerBackgroundAnalysis(id, currentUid);
 
       // 4. 完成後才跳轉
-      updateStatus('存檔完成！準備回主頁...', 'success');
+      updateStatus('存檔完成！準備進下一關...', 'success');
       await new Promise(r => setTimeout(r, 800));
-      goHome();
+      goNext();
       
     } else {
       // === 一般單張照片任務 ===
@@ -439,9 +456,9 @@ async function takeShot() {
       await triggerBackgroundAnalysis(id, currentUid);
       
       // 3. 完成後才跳轉
-      updateStatus('存檔完成！準備回主頁...', 'success');
+      updateStatus('存檔完成！準備進下一關...', 'success');
       await new Promise(r => setTimeout(r, 800));
-      goHome();
+      goNext();
     }
     
   } catch (error) {
