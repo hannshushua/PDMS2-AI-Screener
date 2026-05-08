@@ -425,7 +425,8 @@ def api_login():
         (account,),
         fetch="one",
     )
-    if (not row) or row["password"] != password:
+    stored_pw = (row["password"] or "").replace("-", "") if row else ""
+    if (not row) or stored_pw != password:
         return jsonify({"ok": False, "msg": "帳號或密碼錯誤"}), 401
     session["user"] = {
         "account": row["account"],
@@ -451,7 +452,6 @@ def api_logout():
     return jsonify({"ok": True})
 
 
-# 🆕 新增：讓家長 (Level 1) 修改自己的帳號或密碼
 @app.post("/api/auth/update_profile")
 def api_update_profile():
     user = session.get("user")
@@ -459,21 +459,29 @@ def api_update_profile():
         return jsonify({"ok": False, "msg": "未登入"}), 401
 
     data = request.get_json() or {}
-    new_acc = data.get("new_account", "").strip()
+    old_pwd = data.get("old_password", "").strip()
     new_pwd = data.get("new_password", "").strip()
-    old_acc = user["account"]
+    account = user["account"]
 
-    if not new_acc or not new_pwd:
-        return jsonify({"ok": False, "msg": "內容不可為空"}), 400
+    if not old_pwd or not new_pwd:
+        return jsonify({"ok": False, "msg": "所有欄位不可為空"}), 400
+
+    row = db_exec(
+        "SELECT password FROM admin_users WHERE account=%s",
+        (account,),
+        fetch="one",
+    )
+    stored_pw = (row["password"] or "").replace("-", "") if row else ""
+    if stored_pw != old_pwd:
+        return jsonify({"ok": False, "msg": "舊密碼錯誤"}), 403
 
     try:
-        # 更新 admin_users 列表
         db_exec(
-            "UPDATE admin_users SET account=%s, password=%s WHERE account=%s",
-            (new_acc, new_pwd, old_acc),
+            "UPDATE admin_users SET password=%s WHERE account=%s",
+            (new_pwd, account),
         )
-        session.pop("user", None)  # 修改完成後強制登出，要求重新登入
-        return jsonify({"ok": True, "msg": "修改成功，請使用新憑證重新登入"})
+        session.pop("user", None)
+        return jsonify({"ok": True, "msg": "密碼修改成功，請重新登入"})
     except Exception as e:
         return jsonify({"ok": False, "msg": str(e)}), 500
 

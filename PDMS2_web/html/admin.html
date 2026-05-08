@@ -13,6 +13,7 @@
     <div class="brand">兒童發展測驗平台</div>
     <div class="user-info">
       <span id="user-role-display">讀取身分中...</span>
+      <button class="text-link" id="btn-change-pwd" style="display:none;">修改帳密</button>
       <button class="text-link" id="btn-logout">登出系統</button>
     </div>
   </div>
@@ -120,8 +121,86 @@
     </div>
   </dialog>
 
+  <dialog id="change-pwd-dialog">
+    <div class="dialog-header">修改密碼</div>
+    <div class="dialog-body">
+      <div class="form-group">
+        <label>舊密碼</label>
+        <input type="password" id="cp-old-pwd" placeholder="輸入目前密碼" autocomplete="current-password">
+      </div>
+      <div class="form-group">
+        <label>新密碼</label>
+        <div style="position:relative;">
+          <input type="password" id="cp-new-pwd" placeholder="輸入新密碼" autocomplete="new-password" style="padding-right:48px;">
+          <button type="button" id="cp-toggle-pwd" style="position:absolute; right:14px; top:50%; transform:translateY(-50%); background:none; border:none; cursor:pointer; font-size:18px; color:#C4A98A; padding:0; width:auto; box-shadow:none;">&#128065;</button>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>確認新密碼</label>
+        <input type="password" id="cp-confirm-pwd" placeholder="再輸入一次新密碼" autocomplete="new-password">
+      </div>
+      <div id="cp-msg" style="font-size:14px; min-height:20px; text-align:center;"></div>
+    </div>
+    <div class="dialog-footer">
+      <button class="btn" onclick="document.getElementById('change-pwd-dialog').close()">取消返回</button>
+      <button class="btn primary" id="cp-save">確認修改</button>
+    </div>
+  </dialog>
+
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <script src="../js/admin.js"></script>
+  <script>
+    document.getElementById('btn-change-pwd').addEventListener('click', () => {
+      document.getElementById('cp-old-pwd').value = '';
+      document.getElementById('cp-new-pwd').value = '';
+      document.getElementById('cp-confirm-pwd').value = '';
+      document.getElementById('cp-msg').textContent = '';
+      document.getElementById('change-pwd-dialog').showModal();
+    });
+
+    document.getElementById('cp-toggle-pwd').addEventListener('click', () => {
+      const input = document.getElementById('cp-new-pwd');
+      const btn = document.getElementById('cp-toggle-pwd');
+      const isHidden = input.type === 'password';
+      input.type = isHidden ? 'text' : 'password';
+      btn.innerHTML = isHidden ? '&#128064;' : '&#128065;';
+    });
+
+    document.getElementById('cp-save').addEventListener('click', async () => {
+      const old_password = document.getElementById('cp-old-pwd').value.trim();
+      const new_password = document.getElementById('cp-new-pwd').value.trim();
+      const confirm_password = document.getElementById('cp-confirm-pwd').value.trim();
+      const msg = document.getElementById('cp-msg');
+
+      if (!old_password || !new_password || !confirm_password) {
+        msg.style.color = '#E57373';
+        msg.textContent = '所有欄位不可為空';
+        return;
+      }
+      if (new_password !== confirm_password) {
+        msg.style.color = '#E57373';
+        msg.textContent = '兩次輸入的新密碼不一致';
+        return;
+      }
+
+      const res = await fetch('/api/auth/update_profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ old_password, new_password }),
+        credentials: 'include'
+      });
+      const js = await res.json();
+
+      if (js.ok) {
+        msg.style.color = '#81C784';
+        msg.textContent = js.msg;
+        setTimeout(() => { location.href = '/html/admin_login.html'; }, 1200);
+      } else {
+        msg.style.color = '#E57373';
+        msg.textContent = js.msg || '修改失敗';
+      }
+    });
+  </script>
 </body>
 
 </html>
