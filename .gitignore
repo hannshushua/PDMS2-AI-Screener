@@ -32,7 +32,9 @@ web.log
 !PDMS2_web/kid/
 !PDMS2_web/kid/**
 !PDMS2_web/kid/**/
-
+# 追蹤 PDMS2_web/video 內的視頻檔案
+!PDMS2_web/video/
+!PDMS2_web/video/*.mp4
 # --- 開發環境與系統檔案 ---
 # macOS Finder metadata
 .DS_Store
