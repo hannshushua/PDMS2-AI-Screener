@@ -28,6 +28,10 @@ web.log
 !PDMS2_web/images/icons/*.png
 !PDMS2_web/images/icons/*.jpg
 
+#追蹤 PDMS2_web/kid 內的素材
+!PDMS2_web/kid/
+!PDMS2_web/kid/*
+
 # --- 開發環境與系統檔案 ---
 # macOS Finder metadata
 .DS_Store
