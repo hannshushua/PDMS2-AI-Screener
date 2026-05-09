@@ -232,6 +232,10 @@
       togglePwd.innerHTML = isHidden ? '&#128064;' : '&#128065;';
     });
 
+    window.addEventListener('pageshow', e => {
+      if (e.persisted) btn.disabled = false;
+    });
+
     btn.addEventListener('click', login);
     document.addEventListener('keydown', e => { if (e.key === 'Enter') login(); });
   </script>
