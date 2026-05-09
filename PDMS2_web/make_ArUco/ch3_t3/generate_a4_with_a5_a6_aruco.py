@@ -1,6 +1,9 @@
+import os
 import cv2
 import numpy as np
 from PIL import Image
+
+OUT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # A4 size in mm: 210 x 297
 # A5 size in mm: 148 x 210
@@ -42,6 +45,10 @@ a5_upper_offset_y = (half_a4_height - a5_height_px) // 2
 # 下半部分 A5 區域置中（用於繪製參考邊框）
 a5_lower_offset_x = (a4_width_px - a5_width_px) // 2
 a5_lower_offset_y = half_a4_height + (half_a4_height - a5_height_px) // 2
+
+# 垂直中線參數
+line_thickness_mm = 3
+line_thickness_px = mm2px(line_thickness_mm)
 
 # ArUco marker parameters
 aruco_size_mm = 30  # 3 cm
@@ -154,11 +161,15 @@ print()
 
 print()
 
-# 繪製中線（用於區分上下兩半）
-# cv2.line(page, (0, half_a4_height), (a4_width_px, half_a4_height), (150, 150, 150), 1)
+# 垂直中線
+center_x = a4_width_px // 2
+line_x1 = center_x - line_thickness_px // 2
+line_x2 = center_x + line_thickness_px // 2
+cv2.rectangle(page, (line_x1, 0), (line_x2, a4_height_px), (0, 0, 0), -1)
+print(f"垂直中線: x = {center_x} px，範圍 {line_x1} ~ {line_x2} px")
 
 # 儲存圖片
-cv2.imwrite("a4_with_a5_a6_aruco.png", page)
+cv2.imwrite(os.path.join(OUT_DIR, "a4_with_a5_a6_aruco.png"), page)
 
 print("=== 圖片已儲存 ===")
 print("✓ a4_with_a5_a6_aruco.png (A4頁面，4個ArUco在各1/4 A4中心點)")
@@ -172,7 +183,7 @@ try:
     page_pil = Image.fromarray(cv2.cvtColor(page, cv2.COLOR_BGR2RGB))
 
     # 建立 PDF
-    page_pil.save("a4_with_a5_a6_aruco.pdf", resolution=DPI)
+    page_pil.save(os.path.join(OUT_DIR, "a4_with_a5_a6_aruco.pdf"), resolution=DPI)
 
     print("✓ a4_with_a5_a6_aruco.pdf")
     print()

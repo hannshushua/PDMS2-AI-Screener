@@ -1,6 +1,9 @@
+import os
 import cv2
 import numpy as np
 from PIL import Image
+
+OUT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # A4 size in mm: 210 x 297
 # A5 size in mm: 148 x 210
@@ -46,9 +49,10 @@ outer_radius_px = mm2px(outer_radius_mm)
 inner_radius_px = mm2px(inner_radius_mm)
 
 # ArUco marker parameters
-aruco_size_mm = 35  # 3.5 cm（較大，因為背面沒有圓環）
+aruco_size_mm = 20  # 2 cm
 aruco_size_px = mm2px(aruco_size_mm)
 aruco_dict = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_4X4_50)
+aruco_id = 0
 
 print("=== 生成 A4 雙面頁面（A5 區域置中）===")
 print(f"A4 尺寸: {a4_width_px} x {a4_height_px} px ({DPI} DPI)")
@@ -84,69 +88,43 @@ for idx, (center_x, center_y) in enumerate(centers):
         (255, 255, 255),
         thickness=-1,
     )
-    print(
-        f"圓環 {idx+1}: 圓心 ({center_x}, {center_y}), 外圓半徑 {outer_radius_px} px, 內圓半徑 {inner_radius_px} px"
-    )
-
-# 背面：只有 ArUco（無圓環），A5 區域置中
-back_page_1 = np.ones((a4_height_px, a4_width_px, 3), dtype=np.uint8) * 255
-
-for idx, (center_x, center_y) in enumerate(centers):
-    # 產生 ArUco marker（ID 都是 0）
-    aruco_marker = cv2.aruco.generateImageMarker(aruco_dict, 0, aruco_size_px)
-    # 貼上 ArUco marker
+    # 在內圓中心貼上 ArUco marker
+    aruco_marker = cv2.aruco.generateImageMarker(aruco_dict, aruco_id, aruco_size_px)
+    marker_bgr = cv2.cvtColor(aruco_marker, cv2.COLOR_GRAY2BGR)
     start_x = center_x - aruco_size_px // 2
     start_y = center_y - aruco_size_px // 2
-    marker_bgr = cv2.cvtColor(aruco_marker, cv2.COLOR_GRAY2BGR)
-    # 防止 marker 超出邊界
-    end_x = min(start_x + aruco_size_px, back_page_1.shape[1])
-    end_y = min(start_y + aruco_size_px, back_page_1.shape[0])
+    end_x = min(start_x + aruco_size_px, front_page_1.shape[1])
+    end_y = min(start_y + aruco_size_px, front_page_1.shape[0])
     marker_w = end_x - start_x
     marker_h = end_y - start_y
-    back_page_1[start_y:end_y, start_x:end_x] = marker_bgr[:marker_h, :marker_w]
-
-    print(f"ArUco ID 0: 位置 {idx+1} ({center_x}, {center_y})")
+    front_page_1[start_y:end_y, start_x:end_x] = marker_bgr[:marker_h, :marker_w]
+    print(
+        f"圓環+ArUco {idx+1}: 圓心 ({center_x}, {center_y}), 外圓 {outer_radius_px}px, 內圓 {inner_radius_px}px, ArUco {aruco_size_px}px"
+    )
 
 print()
 
 # 儲存圖片
-cv2.imwrite("a4_front_page1.png", front_page_1)
-cv2.imwrite("a4_back_page1.png", back_page_1)
+cv2.imwrite(os.path.join(OUT_DIR, "a4_front_page1.png"), front_page_1)
 
 print("=== 圖片已儲存 ===")
-print("✓ a4_front_page1.png (正面 - A5區域置中，2個黑色圓環)")
-print("✓ a4_back_page1.png (背面 - A5區域置中，2個ArUco ID 0)")
+print(f"✓ a4_front_page1.png (正面 - 2個黑色圓環，ArUco ID {aruco_id} 置中在圓環內)")
 print()
 
 # 建立 PDF（需要 PIL/Pillow）
 try:
     from PIL import Image
 
-    # 將 OpenCV BGR 轉換為 PIL RGB
     front1_pil = Image.fromarray(cv2.cvtColor(front_page_1, cv2.COLOR_BGR2RGB))
-    back1_pil = Image.fromarray(cv2.cvtColor(back_page_1, cv2.COLOR_BGR2RGB))
+    front1_pil.save(os.path.join(OUT_DIR, "a4_front.pdf"), resolution=DPI)
 
-    # 建立 PDF（頁面順序：正面, 背面）
-    front1_pil.save(
-        "a4_double_sided.pdf",
-        save_all=True,
-        append_images=[back1_pil],
-        resolution=DPI,
-    )
-
-    print("✓ a4_double_sided.pdf (2頁PDF: 正面, 背面)")
-    print()
-    print("💡 列印提示：")
-    print("   使用雙面列印功能，或：")
-    print("   1. 先列印第 1 頁（正面 - 圓環）")
-    print("   2. 將紙張翻面，再列印第 2 頁（背面 - ArUco）")
+    print("✓ a4_front.pdf (單頁PDF: 正面)")
     print()
     print("📐 設計說明：")
     print(f"   - A4 紙張尺寸：210 x 297 mm")
     print(f"   - A5 有效區域：148 x 210 mm (置中於 A4)")
-    print(f"   - 2 個圓環/ArUco 位於 A5 區域內上下分布")
-    print(f"   - 正面：黑色圓環（外徑 {outer_radius_mm}mm，內徑 {inner_radius_mm}mm）")
-    print(f"   - 背面：ArUco 標記 ID 0（尺寸 {aruco_size_mm}mm）")
+    print(f"   - 2 個圓環位於 A5 區域內上下分布")
+    print(f"   - 黑色圓環（外徑 {outer_radius_mm}mm，內徑 {inner_radius_mm}mm）+ ArUco ID {aruco_id}（{aruco_size_mm}mm）置中於圓環")
 
 except ImportError:
     print("⚠️ 未安裝 Pillow，無法生成 PDF")
