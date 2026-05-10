@@ -1,4 +1,4 @@
-[![Python](https://img.shields.io/badge/Python-3.10+-blue.svg)](https://www.python.org/)
+[![Python](https://img.shields.io/badge/Python-3.9-blue.svg)](https://www.python.org/)
 [![Frontend](https://img.shields.io/badge/Frontend-HTML5%2FCSS3%2FJavaScript-E34F26.svg)](https://developer.mozilla.org/docs/Web)
 [![Backend](https://img.shields.io/badge/Backend-Flask-black.svg)](https://flask.palletsprojects.com/)
 [![CORS](https://img.shields.io/badge/CORS-Flask--CORS-3776AB.svg)](https://flask-cors.readthedocs.io/)
