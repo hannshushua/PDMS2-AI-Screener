@@ -37,7 +37,10 @@ def _read_env_file(path: Path = ENV_PATH) -> dict:
     return values
 
 _env = _read_env_file()
-DATA_ROOT = Path(_env.get("PDMS_DATA_ROOT", "/Applications/XAMPP/xamppfiles/htdocs/PDMS")).expanduser()
+_pdms_data_root_str = _env.get("PDMS_DATA_ROOT", "").strip()
+if not _pdms_data_root_str:
+    raise ValueError("發生錯誤: .env 檔案中未設定 PDMS_DATA_ROOT，請務必設定資料儲存路徑。")
+DATA_ROOT = Path(_pdms_data_root_str).expanduser()
 
 DB = dict(
     host=_env.get("DB_HOST", "127.0.0.1"),

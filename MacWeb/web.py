@@ -66,19 +66,11 @@ def _read_env_file(path: Path = ENV_PATH) -> dict:
 _env = _read_env_file()
 
 def _resolve_data_root() -> Path:
-    env_root = os.environ.get("PDMS_DATA_ROOT", "").strip()
-    if env_root:
-        return Path(env_root).expanduser().resolve()
-
-    default_root = (BASE_DIR / "PDMS2").resolve()
-    if default_root.exists():
-        return default_root
-
-    fallback_root = Path.home() / "Desktop" / "PDMS"
-    if fallback_root.exists():
-        return fallback_root.resolve()
-
-    return default_root
+    # 支援 os.environ (例如由 docker 傳入) 或由 .env 解析
+    env_root = os.environ.get("PDMS_DATA_ROOT", "").strip() or _env.get("PDMS_DATA_ROOT", "").strip()
+    if not env_root:
+        raise ValueError("發生錯誤: 未設定 PDMS_DATA_ROOT 環境變數，請務必在 .env 檔案中設定資料儲存路徑。")
+    return Path(env_root).expanduser().resolve()
 
 
 DATA_ROOT = _resolve_data_root()
