@@ -13,7 +13,6 @@ import subprocess
 import tempfile
 import threading
 import webbrowser
-import unicodedata
 import socket
 from pathlib import Path
 from datetime import datetime, date
@@ -50,24 +49,6 @@ DEFAULT_TOP_CAMERA_INDEX = 0
 DEFAULT_SIDE_CAMERA_INDEX = 1  # Ch5-t1 使用
 DEFAULT_PX2CM = 47.4416628993705
 DEFAULT_CH3_T4_STANDARD_AREA = 34769
-_MACOS_CAMERA_IGNORE_KEYWORDS = (
-    "iphone",
-    "ipad",
-    "ipod",
-    "facetime",
-    "continuity",
-    "手機",
-    "內建",
-    "built-in",
-    "built in",
-    "apple",
-    "phone",
-)
-
-
-def _default_camera_scan_max_index() -> int:
-    # 預設掃描範圍
-    return 3
 
 
 def _should_skip_opencv_roi_gui(force_gui: bool = False) -> bool:
@@ -169,57 +150,6 @@ if __name__ == "__main__":
 
         write_to_console(f"[ROI] 子行程回傳失敗: {error_message}", "WARN")
         return {"success": False, "error": error_message, "fallback": "manual"}
-
-
-def _is_ignored_macos_camera(name: str, model_id: str = "", unique_id: str = "") -> bool:
-    # 正規化名稱 (處理特殊字體 𝓦𝓲𝓵𝓵𝓲𝓪𝓶 -> William)
-    norm_name = unicodedata.normalize("NFKD", name).encode("ascii", "ignore").decode("ascii")
-    haystack = f"{name} {norm_name} {model_id} {unique_id}".lower()
-    
-    # 強制過濾 iPhone 型號
-    if "iphone" in model_id.lower() or "iphone" in name.lower():
-        return True
-        
-    return any(keyword in haystack for keyword in _MACOS_CAMERA_IGNORE_KEYWORDS)
-
-
-def _read_macos_camera_labels() -> list:
-    try:
-        result = subprocess.run(
-            ["system_profiler", "SPCameraDataType"],
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="ignore",
-            check=True,
-        )
-    except Exception:
-        return []
-
-    cameras = []
-    current = None
-
-    for raw_line in result.stdout.splitlines():
-        stripped = raw_line.strip()
-
-        if not stripped:
-            continue
-
-        if raw_line.startswith("    ") and not raw_line.startswith("        ") and stripped.endswith(":"):
-            name = stripped[:-1].strip()
-            current = {"name": name, "model_id": "", "unique_id": ""}
-            cameras.append(current)
-            continue
-
-        if current is None:
-            continue
-
-        if stripped.startswith("Model ID:"):
-            current["model_id"] = stripped.split(":", 1)[1].strip()
-        elif stripped.startswith("Unique ID:"):
-            current["unique_id"] = stripped.split(":", 1)[1].strip()
-
-    return cameras
 
 
 def _read_env_file(path: Path = ENV_PATH) -> dict:
@@ -693,15 +623,7 @@ DB = dict(
     autocommit=True,
 )
 
-# ====== MAC 上傳設定（從 .env 讀取） ======
-MAC_UPLOAD_HOST = _env.get("MAC_UPLOAD_HOST", "127.0.0.1")
-MAC_UPLOAD_PORT = int(_env.get("MAC_UPLOAD_PORT", 22))
-MAC_UPLOAD_USER = _env.get("MAC_UPLOAD_USER", "")
-MAC_UPLOAD_PASSWORD = _env.get("MAC_UPLOAD_PASSWORD", "")
-MAC_UPLOAD_KEY_PATH = _env.get("MAC_UPLOAD_KEY_PATH", "")
-MAC_UPLOAD_REMOTE_BASE = _env.get("MAC_UPLOAD_REMOTE_BASE", "Desktop/PDMS")
 MACWEB_BASE_URL = _env.get("MACWEB_BASE_URL", "http://127.0.0.1:3000")
-# =====================================================
 
 DEMO_MODE = _env.get("DEMO_MODE", "false").strip().lower() == "true"
 
@@ -749,16 +671,6 @@ TASK_MAP = {
 }
 
 
-# def ensure_user(uid: str, name: Optional[str] = None, birthday: Optional[str] = None):
-#     try:
-#         db_exec(
-#             "INSERT INTO user_list(uid, name, birthday) VALUES (%s,%s,%s) "
-#             "ON DUPLICATE KEY UPDATE name=COALESCE(VALUES(name),name), birthday=COALESCE(VALUES(birthday),birthday)",
-#             (uid, name, birthday),
-#         )
-#         write_to_console(f"[DB] ensure_user ok: uid={uid}", "INFO")
-#     except Exception as e:
-#         raise
 def user_exists(uid: str) -> bool:
     """回傳這個 uid 是否存在於 user_list"""
     row = db_exec(
@@ -1065,7 +977,7 @@ def measure_standard_area_from_frame():
 
 
 clear_console_log()
-logger = setup_console_logging()
+setup_console_logging()
 app.logger.disabled = True
 logging.getLogger("flask.app").disabled = True
 write_to_console("=== 遠端 PyMySQL 模式 ===", "INFO")
@@ -1337,85 +1249,6 @@ def normalize_task_id(task_code_raw: str) -> str:
     return task_code_raw
 
 
-def resolve_script_path(task_code: str) -> Optional[Path]:
-    guesses = [
-        ROOT / task_code / "main.py",
-        ROOT / task_code.lower() / "main.py",
-        ROOT / normalize_task_id(task_code) / "main.py",
-        ROOT / normalize_task_id(task_code).lower() / "main.py",
-    ]
-    for p in guesses:
-        if p.exists():
-            return p
-    return None
-
-
-def upload_task_images_to_mac(uid: str, img_id: str) -> bool:
-    uploader_path = ROOT / "scripts" / "upload_to_mac_pdms.py"
-    if not uploader_path.exists():
-        write_to_console(f"[UPLOAD] 找不到上傳腳本: {uploader_path}", "ERROR")
-        return False
-
-    if not MAC_UPLOAD_HOST or not MAC_UPLOAD_USER:
-        write_to_console(
-            "[UPLOAD] 缺少上傳設定：MAC_UPLOAD_HOST 或 MAC_UPLOAD_USER", "ERROR"
-        )
-        return False
-
-    cmd = [
-        sys.executable,
-        str(uploader_path),
-        "--uid",
-        uid,
-        "--img-id",
-        img_id,
-        "--root",
-        str(ROOT),
-        "--host",
-        MAC_UPLOAD_HOST,
-        "--port",
-        str(MAC_UPLOAD_PORT),
-        "--user",
-        MAC_UPLOAD_USER,
-        "--remote-base",
-        MAC_UPLOAD_REMOTE_BASE,
-    ]
-
-    if MAC_UPLOAD_PASSWORD:
-        cmd.extend(["--password", MAC_UPLOAD_PASSWORD])
-    if MAC_UPLOAD_KEY_PATH:
-        cmd.extend(["--key-path", MAC_UPLOAD_KEY_PATH])
-
-    creation_flags = 0
-    if sys.platform == "win32":
-        creation_flags = subprocess.CREATE_NO_WINDOW
-
-    result = subprocess.run(
-        cmd,
-        cwd=ROOT,
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
-        creationflags=creation_flags,
-    )
-
-    if result.stdout:
-        write_to_console(f"[UPLOAD][stdout]\n{result.stdout}", "INFO")
-    if result.stderr:
-        write_to_console(f"[UPLOAD][stderr]\n{result.stderr}", "ERROR")
-
-    if result.returncode == 0:
-        write_to_console(f"[UPLOAD] 上傳成功: uid={uid}, img_id={img_id}", "INFO")
-        return True
-
-    write_to_console(
-        f"[UPLOAD] 上傳失敗(returncode={result.returncode}): uid={uid}, img_id={img_id}",
-        "ERROR",
-    )
-    return False
-
-
 def _find_task_image(uid: str, img_id: str) -> Optional[Path]:
     for ext in [".jpg", ".jpeg", ".png", ".webp"]:
         candidate = ROOT / "kid" / uid / f"{img_id}{ext}"
@@ -1481,7 +1314,7 @@ def _notify_admin_score_updated():
 
 
 def run_analysis_in_background(
-    task_id, uid, img_id, script_path, stair_type=None, cam_index_input=None
+    task_id, uid, img_id, cam_index_input=None
 ):
     try:
         processing_tasks[task_id] = {
@@ -1496,7 +1329,7 @@ def run_analysis_in_background(
         task_id_std = normalize_task_id(img_id)
 
         # ★ Ch5-t1 特殊處理：本機執行 main.py（非遠端）
-        if img_id.lower() in ["ch5-t1", "ch5-t1"]:
+        if img_id.lower() == "ch5-t1":
             write_to_console(f"[Ch5-t1] 執行本機遊戲程式", "INFO")
             
             # 取得 side camera index
@@ -1611,12 +1444,11 @@ def run_python_script():
             return jsonify({"success": False, "error": "缺少參數"}), 400
 
         task_id = str(uuid.uuid4())
-        stair_type = session.get("stair_type")
         processing_tasks[task_id] = {"status": "pending", "uid": uid}
 
         t = Thread(
             target=run_analysis_in_background,
-            args=(task_id, uid, img_id, None, stair_type, cam_index_input),
+            args=(task_id, uid, img_id, cam_index_input),
         )
         t.daemon = True
         t.start()
@@ -1930,7 +1762,7 @@ def crop_center(frame, camera_idx=None):
 
 
 def get_frame():
-    global camera, camera_active, current_task_id, current_camera_index
+    global camera, camera_active, current_camera_index
     try:
         with camera_lock:
             if not camera_active or camera is None:

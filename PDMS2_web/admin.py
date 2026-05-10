@@ -4,14 +4,14 @@ from pathlib import Path
 from flask import Flask, send_from_directory, request, jsonify, session, redirect
 import threading
 from datetime import datetime, date
-import logging, uuid, os, secrets, queue
+import os, secrets, queue
 import hashlib
 import hmac
+import webbrowser
 from flask_cors import CORS
 import traceback
 from typing import Optional
 from werkzeug.exceptions import HTTPException
-import time
 import pymysql
 from urllib.parse import urlencode, urlparse
 import re
@@ -120,9 +120,6 @@ def ensure_task(task_id: str):
     )
 
 
-def make_row_key(uid, task_id, test_date_str: str):
-    return f"{uid}|{task_id}|{test_date_str}"
-
 
 os.environ["PYTHONIOENCODING"] = "utf-8"
 os.environ["PYTHONUTF8"] = "1"
@@ -219,23 +216,6 @@ def extract_uid_filename(path_or_url: str):
         return parts[0], parts[1]
     return None, None
 
-
-def result_filename(filename: str) -> str:
-    stem, ext = os.path.splitext(filename)
-    if not ext:
-        ext = ".jpg"
-    if stem.endswith("_result"):
-        return f"{stem}{ext}"
-    return f"{stem}_result{ext}"
-
-
-def original_filename(filename: str) -> str:
-    stem, ext = os.path.splitext(filename)
-    if stem.endswith("_result"):
-        stem = stem[:-7]
-    if not ext:
-        ext = ".jpg"
-    return f"{stem}{ext}"
 
 
 def write_to_console(message, level="INFO"):
@@ -365,25 +345,12 @@ def view_compare():
 
         original_src = build_signed_image_url(uid, original_name)
         result_src = build_signed_image_url(uid, result_name)
-
-        if task_id == "Ch3-t1":
-            content_html = f"""
-            <div class=\"row\">
-                <div class=\"box\"><h3>原始照片 (Original)</h3><img src=\"{original_src}\" onerror=\"this.onerror=null;this.src='/images/no_image.png';\"></div>
-                <div class=\"box\"><h3>分析結果 (Result)</h3><img src=\"{result_src}\" onerror=\"this.onerror=null;this.src='/images/no_image.png';\"></div>
-            </div>
-            """
-        else:
-            normalized_original = original_name
-            normalized_result = result_name
-            original_src = build_signed_image_url(uid, normalized_original)
-            result_src = build_signed_image_url(uid, normalized_result)
-            content_html = f"""
-            <div class=\"row\">
-                <div class=\"box\"><h3>原始照片 (Original)</h3><img src=\"{original_src}\" onerror=\"this.onerror=null;this.src='/images/no_image.png';\"></div>
-                <div class=\"box\"><h3>分析結果 (Result)</h3><img src=\"{result_src}\" onerror=\"this.onerror=null;this.src='/images/no_image.png';\"></div>
-            </div>
-            """
+        content_html = f"""
+        <div class=\"row\">
+            <div class=\"box\"><h3>原始照片 (Original)</h3><img src=\"{original_src}\" onerror=\"this.onerror=null;this.src='/images/no_image.png';\"></div>
+            <div class=\"box\"><h3>分析結果 (Result)</h3><img src=\"{result_src}\" onerror=\"this.onerror=null;this.src='/images/no_image.png';\"></div>
+        </div>
+        """
 
     html = f"""
     <!DOCTYPE html>
@@ -755,5 +722,10 @@ def internal_score_updated():
     return jsonify({"ok": True})
 
 
+def _open_browser():
+    webbrowser.open(f"http://{HOST}:{PORT}/")
+
+
 if __name__ == "__main__":
+    threading.Timer(0.5, _open_browser).start()
     app.run(host=HOST, port=PORT, debug=False, use_reloader=False)
