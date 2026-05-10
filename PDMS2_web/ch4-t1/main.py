@@ -46,7 +46,7 @@ def load_pixel_ratio(json_path):
         with open(json_path, 'r') as f:
             data = json.load(f)
             return float(data.get("pixel_per_cm", 16.70))
-    except:
+    except Exception:
         return 16.70
 
 def calculate_score(approx, px2cm):
@@ -93,7 +93,7 @@ def main():
     print("⏳ 正在載入 YOLO 模镸...")
     try:
         yolo = YOLO(YOLO_PATH)
-        px2cm = _read_db_config("PDMS2_PX2CM", 16.70) # 載入比例尺
+        px2cm = _read_env_float("PDMS2_PX2CM", 16.70) # 載入比例尺
     except Exception as e:
         print(f"❌ 載入失敗: {e}")
         return_score(-1)

@@ -244,7 +244,7 @@ def write_to_console(message, level="INFO"):
     try:
         with open(console_path, "a", encoding="utf-8") as f:
             f.write(f"{ts} - {level} - {message}\n")
-    except:
+    except Exception:
         pass
 
 

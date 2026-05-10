@@ -1892,7 +1892,7 @@ def start_opencv_camera():
         if init_camera(cam_index):
             return jsonify({"success": True})
         return jsonify({"success": False}), 500
-    except:
+    except Exception:
         return jsonify({"success": False}), 500
 
 
