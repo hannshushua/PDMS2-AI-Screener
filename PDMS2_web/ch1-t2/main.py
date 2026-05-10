@@ -29,6 +29,7 @@ except ImportError as e:
 # ================== 模型與全域設定 ==================
 device = "cuda" if torch.cuda.is_available() else "cpu"
 BASE_DIR = Path(__file__).resolve().parent
+ENV_PATH = BASE_DIR.parent / ".env"
 MODEL_PATH = BASE_DIR / "toybrick_side.pt"
 SAM_CHECKPOINT = BASE_DIR / "sam_vit_b_01ec64.pth"
 SAM_TYPE = "vit_b"
@@ -72,15 +73,39 @@ def get_sam_masks_from_boxes(frame, boxes):
         sam_masks.append(m[0])
     return sam_masks
 
+# ================== ROI 裁切設定 (從 .env 載入) ==================
+def _read_env_int(key, default=0):
+    if not ENV_PATH.exists():
+        return default
+    try:
+        for raw_line in ENV_PATH.read_text(encoding="utf-8").splitlines():
+            line = raw_line.strip()
+            if not line or line.startswith("#") or "=" not in raw_line:
+                continue
+            k, v = raw_line.split("=", 1)
+            if k.strip() == key:
+                return int(v.strip())
+    except Exception:
+        return default
+    return default
+
+TOP_ROI_X  = _read_env_int("PDMS2_ROI_X")
+TOP_ROI_Y  = _read_env_int("PDMS2_ROI_Y")
+TOP_ROI_W  = _read_env_int("PDMS2_ROI_W")
+TOP_ROI_H  = _read_env_int("PDMS2_ROI_H")
+SIDE_ROI_X = _read_env_int("PDMS2_SIDE_ROI_X")
+SIDE_ROI_Y = _read_env_int("PDMS2_SIDE_ROI_Y")
+SIDE_ROI_W = _read_env_int("PDMS2_SIDE_ROI_W")
+SIDE_ROI_H = _read_env_int("PDMS2_SIDE_ROI_H")
+
 # ================== 俯視圖 (TOP View) 分析 ==================
 CONF_TOP = 0.8
-CROP_RATIO = 0.5
 
 def analyze_image_top(frame, initial_get_point=2):
-    H, W = frame.shape[:2]
-    crop_w, crop_h = int(W * CROP_RATIO), int(H * CROP_RATIO)
-    x1, y1 = (W - crop_w) // 2, (H - crop_h) // 2
-    cropped = frame[y1:y1+crop_h, x1:x1+crop_w].copy()
+    if TOP_ROI_W > 0 and TOP_ROI_H > 0:
+        cropped = frame[TOP_ROI_Y:TOP_ROI_Y+TOP_ROI_H, TOP_ROI_X:TOP_ROI_X+TOP_ROI_W].copy()
+    else:
+        cropped = frame.copy()
 
     results = yolo_model.predict(source=cropped, conf=CONF_TOP, verbose=False)
     yolo_boxes = results[0].boxes.xyxy.cpu().numpy() if results[0].boxes is not None else []
@@ -138,6 +163,8 @@ GAP_THRESHOLD_RATIO = 0.5
 def analyze_image_side(img_path, model):
     frame = cv2.imread(img_path)
     if frame is None: raise ValueError(f"讀取圖片失敗：{img_path}")
+    if SIDE_ROI_W > 0 and SIDE_ROI_H > 0:
+        frame = frame[SIDE_ROI_Y:SIDE_ROI_Y+SIDE_ROI_H, SIDE_ROI_X:SIDE_ROI_X+SIDE_ROI_W].copy()
 
     annotated_frame = frame.copy()
     instance_mask_canvas = np.zeros_like(frame)

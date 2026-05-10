@@ -37,12 +37,12 @@ for d in [CH3_T4_DIR, CH2_T1_DIR]:
         sys.path.insert(0, str(d))
 
 try:
-    from paper_contour_model import detect_paper_contour_by_model
+    from paper_contour_model import detect_paper_contour_by_model  # type: ignore
 except Exception:
     detect_paper_contour_by_model = None
 
 try:
-    from px2cm import get_pixel_per_cm_from_image
+    from px2cm import get_pixel_per_cm_from_image  # type: ignore
 except Exception:
     get_pixel_per_cm_from_image = None
 
@@ -326,6 +326,10 @@ def _settings_to_remote_row(settings: dict) -> dict:
             "roi_y": int(settings.get("roi_y", 0)),
             "roi_w": int(settings.get("roi_w", 0)),
             "roi_h": int(settings.get("roi_h", 0)),
+            "side_roi_x": int(settings.get("side_roi_x", 0)),
+            "side_roi_y": int(settings.get("side_roi_y", 0)),
+            "side_roi_w": int(settings.get("side_roi_w", 0)),
+            "side_roi_h": int(settings.get("side_roi_h", 0)),
             "px2cm": float(settings.get("px2cm", 0) or 0),
             "standard_area": float(settings.get("standard_area", 0) or 0),
         }
@@ -350,6 +354,10 @@ def _sync_machine_config_to_remote(settings: dict) -> dict:
             roi_y,
             roi_w,
             roi_h,
+            side_roi_x,
+            side_roi_y,
+            side_roi_w,
+            side_roi_h,
             px2cm,
             standard_area,
             updated_at,
@@ -364,6 +372,10 @@ def _sync_machine_config_to_remote(settings: dict) -> dict:
             %(roi_y)s,
             %(roi_w)s,
             %(roi_h)s,
+            %(side_roi_x)s,
+            %(side_roi_y)s,
+            %(side_roi_w)s,
+            %(side_roi_h)s,
             %(px2cm)s,
             %(standard_area)s,
             NOW(),
@@ -377,6 +389,10 @@ def _sync_machine_config_to_remote(settings: dict) -> dict:
             roi_y = VALUES(roi_y),
             roi_w = VALUES(roi_w),
             roi_h = VALUES(roi_h),
+            side_roi_x = VALUES(side_roi_x),
+            side_roi_y = VALUES(side_roi_y),
+            side_roi_w = VALUES(side_roi_w),
+            side_roi_h = VALUES(side_roi_h),
             px2cm = VALUES(px2cm),
             standard_area = VALUES(standard_area),
             updated_at = NOW()
@@ -474,6 +490,10 @@ def read_app_settings() -> dict:
         "roi_y": int(env.get("PDMS2_ROI_Y", 0)),
         "roi_w": int(env.get("PDMS2_ROI_W", 0)),
         "roi_h": int(env.get("PDMS2_ROI_H", 0)),
+        "side_roi_x": int(env.get("PDMS2_SIDE_ROI_X", 0)),
+        "side_roi_y": int(env.get("PDMS2_SIDE_ROI_Y", 0)),
+        "side_roi_w": int(env.get("PDMS2_SIDE_ROI_W", 0)),
+        "side_roi_h": int(env.get("PDMS2_SIDE_ROI_H", 0)),
     }
 
 
@@ -488,6 +508,12 @@ def read_camera_setting() -> dict:
             "w": settings["roi_w"],
             "h": settings["roi_h"],
         },
+        "side_roi": {
+            "x": settings["side_roi_x"],
+            "y": settings["side_roi_y"],
+            "w": settings["side_roi_w"],
+            "h": settings["side_roi_h"],
+        },
     }
 
 
@@ -498,8 +524,9 @@ def save_app_settings(
     standard_area: Optional[int] = None,
     macweb_base_url: Optional[str] = None,
     roi: Optional[dict] = None,
+    side_roi: Optional[dict] = None,
 ) -> dict:
-    global TOP, SIDE, PX2CM, STANDARD_AREA, ROI_X, ROI_Y, ROI_W, ROI_H
+    global TOP, SIDE, PX2CM, STANDARD_AREA, ROI_X, ROI_Y, ROI_W, ROI_H, SIDE_ROI_X, SIDE_ROI_Y, SIDE_ROI_W, SIDE_ROI_H
 
     settings = read_app_settings()
     updates = {}
@@ -534,6 +561,16 @@ def save_app_settings(
         updates["PDMS2_ROI_W"] = str(settings["roi_w"])
         updates["PDMS2_ROI_H"] = str(settings["roi_h"])
 
+    if side_roi is not None:
+        settings["side_roi_x"] = int(side_roi.get("x", 0))
+        settings["side_roi_y"] = int(side_roi.get("y", 0))
+        settings["side_roi_w"] = int(side_roi.get("w", 0))
+        settings["side_roi_h"] = int(side_roi.get("h", 0))
+        updates["PDMS2_SIDE_ROI_X"] = str(settings["side_roi_x"])
+        updates["PDMS2_SIDE_ROI_Y"] = str(settings["side_roi_y"])
+        updates["PDMS2_SIDE_ROI_W"] = str(settings["side_roi_w"])
+        updates["PDMS2_SIDE_ROI_H"] = str(settings["side_roi_h"])
+
     if updates:
         _write_env_file(updates)
 
@@ -547,6 +584,10 @@ def save_app_settings(
     ROI_Y = int(settings["roi_y"])
     ROI_W = int(settings["roi_w"])
     ROI_H = int(settings["roi_h"])
+    SIDE_ROI_X = int(settings["side_roi_x"])
+    SIDE_ROI_Y = int(settings["side_roi_y"])
+    SIDE_ROI_W = int(settings["side_roi_w"])
+    SIDE_ROI_H = int(settings["side_roi_h"])
     settings["remote_sync"] = remote_sync
     return settings
 
@@ -629,7 +670,10 @@ ROI_X = _app_setting["roi_x"]
 ROI_Y = _app_setting["roi_y"]
 ROI_W = _app_setting["roi_w"]
 ROI_H = _app_setting["roi_h"]
-CROP_RATE = 0.8  # 預設裁切比例
+SIDE_ROI_X = _app_setting["side_roi_x"]
+SIDE_ROI_Y = _app_setting["side_roi_y"]
+SIDE_ROI_W = _app_setting["side_roi_w"]
+SIDE_ROI_H = _app_setting["side_roi_h"]
 current_camera_index = TOP  # 追蹤目前啟動的相機
 # ====================
 
@@ -1728,10 +1772,8 @@ def init_camera(camera_index=TOP):
                     raise Exception("相機已開啟但無法讀取畫面")
 
             h, w = frame.shape[:2]
-            crop_w = int(w * CROP_RATE)
-            crop_h = int(h * CROP_RATE)
             write_to_console(
-                f"相機開啟成功，來源: {camera_index}，原始尺寸: {w}x{h}，裁切後: {crop_w}x{crop_h}",
+                f"相機開啟成功，來源: {camera_index}，原始尺寸: {w}x{h}",
                 "INFO",
             )
             camera_active = True
@@ -1750,13 +1792,13 @@ def select_camera_roi():
         data = request.get_json() or {}
         camera_index = int(data.get("camera_index", TOP))
         force_gui = bool(data.get("force_gui", False))
+        role = data.get("role", "top")
         
         write_to_console(f"[ROI] 準備開啟相機 Index {camera_index} 進行 ROI 選取", "INFO")
         
         # 暫時停止目前可能正在運行的相機預覽
         release_camera()
         time.sleep(0.5)
-
         cap = _open_camera_capture(camera_index)
         if not cap or not cap.isOpened():
             return jsonify({
@@ -1794,8 +1836,11 @@ def select_camera_roi():
         roi_result = _select_roi_in_subprocess(frame, window_name)
         if roi_result.get("success"):
             new_roi = roi_result["roi"]
-            save_app_settings(roi=new_roi)
-            write_to_console(f"[ROI] 已更新座標：{new_roi}", "INFO")
+            if role == "side":
+                save_app_settings(side_roi=new_roi)
+            else:
+                save_app_settings(roi=new_roi)
+            write_to_console(f"[ROI] 已更新 {role} 座標：{new_roi}", "INFO")
             return jsonify({"success": True, "roi": new_roi})
 
         write_to_console(f"[ROI] 使用子行程框選失敗: {roi_result.get('error', 'unknown')}", "WARN")
@@ -1811,6 +1856,7 @@ def update_camera_roi():
     try:
         data = request.get_json() or {}
         roi_data = data.get("roi") if isinstance(data.get("roi"), dict) else data
+        role = data.get("role", "top")
 
         x = int(roi_data.get("x", 0))
         y = int(roi_data.get("y", 0))
@@ -1821,34 +1867,67 @@ def update_camera_roi():
             return jsonify({"success": False, "error": "ROI 座標必須為非負整數，且寬高需大於 0"})
 
         new_roi = {"x": x, "y": y, "w": w, "h": h}
-        save_app_settings(roi=new_roi)
-        write_to_console(f"[ROI] 已手動更新座標：{new_roi}", "INFO")
+        if role == "side":
+            save_app_settings(side_roi=new_roi)
+        else:
+            save_app_settings(roi=new_roi)
+        write_to_console(f"[ROI] 已手動更新 {role} 座標：{new_roi}", "INFO")
         return jsonify({"success": True, "roi": new_roi})
     except Exception as e:
         write_to_console(f"[ROI] 手動更新失敗: {e}", "ERROR")
         return jsonify({"success": False, "error": str(e)}), 500
 
 
-def crop_center(frame, _dummy=None):
+@app.get("/machine-configs")
+def list_machine_configs():
+    try:
+        rows = db_exec(
+            """
+            SELECT machine_id, machine_name, hostname,
+                   top_camera_index, side_camera_index,
+                   roi_x, roi_y, roi_w, roi_h,
+                   IFNULL(side_roi_x, 0) AS side_roi_x,
+                   IFNULL(side_roi_y, 0) AS side_roi_y,
+                   IFNULL(side_roi_w, 0) AS side_roi_w,
+                   IFNULL(side_roi_h, 0) AS side_roi_h,
+                   px2cm, standard_area,
+                   DATE_FORMAT(updated_at, '%%Y-%%m-%%d %%H:%%i') AS updated_at
+            FROM machine_configs
+            ORDER BY updated_at DESC
+            """,
+            fetch="all",
+        )
+        return jsonify({"success": True, "configs": rows or []})
+    except Exception as e:
+        write_to_console(f"[machine-configs] 查詢失敗: {e}", "ERROR")
+        return jsonify({"success": False, "configs": [], "error": str(e)}), 500
+
+
+def crop_center(frame, camera_idx=None):
     """
-    裁切影像：優先使用 .env 中的 ROI 固定座標。
+    裁切影像：優先使用 .env 中的 ROI 座標。
     """
     h, w = frame.shape[:2]
     
-    # 檢查是否有自定義 ROI
-    if ROI_W > 0 and ROI_H > 0:
-        x1, y1 = max(0, ROI_X), max(0, ROI_Y)
-        x2, y2 = min(w, ROI_X + ROI_W), min(h, ROI_Y + ROI_H)
-        
-        if x2 > x1 and y2 > y1:
-            return frame[y1:y2, x1:x2]
+    if camera_idx == SIDE:
+        # 使用側面鏡頭的 ROI
+        if SIDE_ROI_W > 0 and SIDE_ROI_H > 0:
+            x1, y1 = max(0, SIDE_ROI_X), max(0, SIDE_ROI_Y)
+            x2, y2 = min(w, SIDE_ROI_X + SIDE_ROI_W), min(h, SIDE_ROI_Y + SIDE_ROI_H)
+            if x2 > x1 and y2 > y1:
+                return frame[y1:y2, x1:x2]
+    else:
+        # 預設或上方鏡頭的 ROI
+        if ROI_W > 0 and ROI_H > 0:
+            x1, y1 = max(0, ROI_X), max(0, ROI_Y)
+            x2, y2 = min(w, ROI_X + ROI_W), min(h, ROI_Y + ROI_H)
+            if x2 > x1 and y2 > y1:
+                return frame[y1:y2, x1:x2]
 
     # 退回到預設固定座標 (原本程式碼的 fallback)
-    x, y, target_w, target_h = 164, 95, 1166, 909
-    return frame[y : y + target_h, x : x + target_w]
+    fallback_x, fallback_y, target_w, target_h = 164, 95, 1166, 909
+    return frame[fallback_y : fallback_y + target_h, fallback_x : fallback_x + target_w]
 
-
-NO_CROP_TASKS = {"ch1-t2", "ch1-t3", "ch1-t4"}
 
 def get_frame():
     global camera, camera_active, current_task_id, current_camera_index
@@ -1860,8 +1939,8 @@ def get_frame():
             if not ret:
                 return None
 
-            if current_task_id not in NO_CROP_TASKS and current_camera_index != SIDE:
-                frame = crop_center(frame, CROP_RATE)
+            # 套用對應鏡頭的裁切
+            frame = crop_center(frame, current_camera_index)
 
             _, buffer = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 85])
             return buffer.tobytes()
