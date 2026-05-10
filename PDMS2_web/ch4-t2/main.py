@@ -1,7 +1,7 @@
 from PaperDetector_edge import PaperDetector_edges
 from find_max_area import MaxAreaQuadFinder
 import cv2
-import json
+
 import sys
 import os
 

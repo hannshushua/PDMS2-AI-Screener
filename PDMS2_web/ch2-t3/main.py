@@ -3,7 +3,7 @@ import cv2
 import numpy as np
 from skimage.morphology import skeletonize
 import math
-import json
+
 from Analyze_graphics import Analyze_graphics
 import glob
 from PIL import Image
@@ -21,6 +21,25 @@ target_dir = os.path.join(BASE_DIR.parent, "ch2-t3")
 
 # MODEL_PATH = BASE_DIR.parent / "ch2-t3" / "model" / "cross_final.h5"
 MODEL_PATH = os.path.join(BASE_DIR.parent, "ch2-t3", "model", "cross_final.h5")
+ENV_PATH = BASE_DIR.parent / ".env"
+
+def _read_env_float(key):
+    if not ENV_PATH.exists():
+        raise FileNotFoundError(f"找不到 .env 檔案")
+    try:
+        for raw_line in ENV_PATH.read_text(encoding="utf-8").splitlines():
+            line = raw_line.strip()
+            if not line or line.startswith("#") or "=" not in raw_line:
+                continue
+            current_key, value = raw_line.split("=", 1)
+            if current_key.strip() == key:
+                parsed = float(value.strip())
+                if parsed <= 0:
+                    raise ValueError(f"{key} 必須大於 0")
+                return parsed
+    except Exception as e:
+        raise ValueError(f"解析 .env 時發生錯誤: {e}")
+    raise ValueError(f"在 .env 中找不到 {key}")
 
 def return_score(score):
     sys.exit(int(score))
@@ -115,17 +134,7 @@ def get_pixel_per_cm_from_a4(
 
         print(f"A4區域已儲存至: {cropped_path}")
 
-    # 儲存像素比例資料
-    json_path = os.path.join("PDMS2_web", "px2cm.json")
-    # data = {
-    #     "pixel_per_cm": pixel_per_cm,
-    #     "image_path": image_path,
-    #     "cropped_path": cropped_path,
-    # }
-    # with open(json_path, "w", encoding="utf-8") as f:
-    #     json.dump(data, f, ensure_ascii=False, indent=2)
-
-    return pixel_per_cm, json_path, cropped_path
+    return pixel_per_cm, None, cropped_path
 
 
 def read_all_images_from_folder(folder_path):
@@ -201,23 +210,23 @@ def main(img_path):
 
     # 得出 px->cm
     try:
-        _, _, cropped_path = get_pixel_per_cm_from_a4(
+        pixel_per_cm, _, cropped_path = get_pixel_per_cm_from_a4(
             img_path,
             show_debug=False,  # 關掉視覺化避免卡住
             save_cropped=True,
             output_folder=os.path.join(target_dir, "cropped_a4"),
         )
-        try:
-            with open(os.path.join("PDMS2_web", "px2cm.json"), "r") as f:
-                data = json.load(f)
-                pixel_per_cm = data["pixel_per_cm"]
-        except FileNotFoundError:
-            pixel_per_cm = 47.4416628993705  # 預設值
-        print(f"{img_path} pixel_per_cm = {pixel_per_cm}")
+        print(f"{img_path} 動態計算比例 pixel_per_cm = {pixel_per_cm}")
     except ValueError as e:
-        img = cv2.imread(img_path)
-        print(f"⚠️ 跳過 {img_path}：{e}")
-        return -1, img
+        print(f"⚠️ 動態計算比例失敗 ({e})，準備改用 .env 備用比例")
+        try:
+            pixel_per_cm = _read_env_float("PDMS2_PX2CM")
+        except Exception as env_e:
+            img = cv2.imread(img_path)
+            print(f"❌ 嚴重錯誤: 動態計算與 .env 備案皆失敗 -> {env_e}")
+            return -1, img
+        cropped_path = img_path  # 若裁切失敗，直接使用原圖路徑
+        print(f"{img_path} 備用比例 pixel_per_cm = {pixel_per_cm}")
 
     
     # 參數要改

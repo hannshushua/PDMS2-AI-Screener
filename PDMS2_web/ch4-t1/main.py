@@ -2,7 +2,6 @@
 import os
 import sys
 import cv2
-import json
 import numpy as np
 from ultralytics import YOLO
 from pathlib import Path
@@ -40,14 +39,6 @@ def return_score(score):
     """回傳整數分數給作業系統或呼叫此程式的後端"""
     sys.exit(int(score))
 
-def load_pixel_ratio(json_path):
-    """讀取比例尺，若失敗則使用預設值"""
-    try:
-        with open(json_path, 'r') as f:
-            data = json.load(f)
-            return float(data.get("pixel_per_cm", 16.70))
-    except Exception:
-        return 16.70
 
 def calculate_score(approx, px2cm):
     """評分邏輯：計算邊長、誤差並給分"""
