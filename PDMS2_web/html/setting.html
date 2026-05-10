@@ -1071,6 +1071,75 @@
             }
         });
 
+        // ================== 其他裝置設定下拉 ==================
+        const machineConfigSelect = document.getElementById("machineConfigSelect");
+        const applyMachineConfigBtn = document.getElementById("applyMachineConfigBtn");
+        const machineConfigPreview = document.getElementById("machineConfigPreview");
+        let machineConfigs = [];
+
+        (async () => {
+            try {
+                const res = await fetch("/machine-configs");
+                const data = await res.json();
+                machineConfigs = data.configs || [];
+                machineConfigs.forEach((cfg, i) => {
+                    const label = `${cfg.hostname || cfg.machine_name || cfg.machine_id} （${cfg.updated_at || ""}）`;
+                    const opt = document.createElement("option");
+                    opt.value = i;
+                    opt.textContent = label;
+                    machineConfigSelect.appendChild(opt);
+                });
+            } catch (_) {}
+        })();
+
+        machineConfigSelect.addEventListener("change", () => {
+            const idx = machineConfigSelect.value;
+            if (idx === "") {
+                applyMachineConfigBtn.disabled = true;
+                machineConfigPreview.textContent = "";
+                return;
+            }
+            const cfg = machineConfigs[Number(idx)];
+            applyMachineConfigBtn.disabled = false;
+            const roiStr = cfg.roi_w > 0
+                ? `上方 ROI: ${cfg.roi_x},${cfg.roi_y},${cfg.roi_w},${cfg.roi_h}`
+                : "上方 ROI: 未設定";
+            const sideRoiStr = cfg.side_roi_w > 0
+                ? `側面 ROI: ${cfg.side_roi_x},${cfg.side_roi_y},${cfg.side_roi_w},${cfg.side_roi_h}`
+                : "側面 ROI: 未設定";
+            machineConfigPreview.textContent =
+                `px2cm: ${Number(cfg.px2cm).toFixed(4)}　標準面積: ${cfg.standard_area}　${roiStr}　${sideRoiStr}`;
+        });
+
+        applyMachineConfigBtn.addEventListener("click", () => {
+            const idx = machineConfigSelect.value;
+            if (idx === "") return;
+            const cfg = machineConfigs[Number(idx)];
+            px2cmInput.value = Number(cfg.px2cm).toFixed(4);
+            standardAreaInput.value = cfg.standard_area;
+            statusText.textContent =
+                `已帶入「${cfg.hostname || cfg.machine_name}」的 px2cm / 標準面積 / ROI，請確認後按儲存設定。`;
+            statusText.className = "status ok";
+
+            // ROI 直接儲存（不需要相機，直接呼叫 API）
+            const promises = [];
+            if (cfg.roi_w > 0 && cfg.roi_h > 0) {
+                promises.push(fetch("/camera-settings/roi", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ roi: { x: cfg.roi_x, y: cfg.roi_y, w: cfg.roi_w, h: cfg.roi_h }, role: "top" }),
+                }));
+            }
+            if (cfg.side_roi_w > 0 && cfg.side_roi_h > 0) {
+                promises.push(fetch("/camera-settings/roi", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ roi: { x: cfg.side_roi_x, y: cfg.side_roi_y, w: cfg.side_roi_w, h: cfg.side_roi_h }, role: "side" }),
+                }));
+            }
+            Promise.all(promises).catch(() => {});
+        });
+
         window.addEventListener("pagehide", () => {
             if (previewStreamInterval) {
                 clearInterval(previewStreamInterval);
