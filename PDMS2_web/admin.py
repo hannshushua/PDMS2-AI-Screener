@@ -126,8 +126,8 @@ os.environ["PYTHONUTF8"] = "1"
 
 PORT = 8001
 HOST = "127.0.0.1"
-MACWEB_BASE_URL = _env.get("MACWEB_BASE_URL", "http://100.117.109.112:3000").rstrip("/")
-IMAGE_SIGN_SECRET = "pdms2-temp-sign-secret-20260325"
+MACWEB_BASE_URL = _env.get("MACWEB_BASE_URL", "http://127.0.0.1:3000").rstrip("/")
+IMAGE_SIGN_SECRET = _env.get("IMAGE_SIGN_SECRET", "")
 
 app = Flask(__name__)
 app.secret_key = secrets.token_hex(16)

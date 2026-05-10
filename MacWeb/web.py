@@ -74,7 +74,7 @@ def _resolve_data_root() -> Path:
     if default_root.exists():
         return default_root
 
-    fallback_root = Path("/Users/yplab/Desktop/PDMS")
+    fallback_root = Path.home() / "Desktop" / "PDMS"
     if fallback_root.exists():
         return fallback_root.resolve()
 
@@ -97,7 +97,7 @@ def _strip_ts(stem: str) -> str:
     return _TS_PATTERN.sub("", stem)
 
 
-IMAGE_SIGN_SECRET = "pdms2-temp-sign-secret-20260325"
+IMAGE_SIGN_SECRET = _env.get("IMAGE_SIGN_SECRET", "")
 
 TASK_MAP = {
     "Ch1-t1": "string_blocks",
@@ -123,10 +123,10 @@ app = Flask(__name__, static_folder="public", static_url_path="")
 app.secret_key = os.environ.get("WEB_SECRET_KEY", "dev-only-secret-change-me")
 
 DB = dict(
-    host=_env.get("DB_HOST", "100.117.109.112"),
+    host=_env.get("DB_HOST", "127.0.0.1"),
     port=int(_env.get("DB_PORT", 3306)),
-    user=_env.get("DB_USER", "yplab"),
-    password=_env.get("DB_PASSWORD", "brain0918"),
+    user=_env.get("DB_USER", ""),
+    password=_env.get("DB_PASSWORD", ""),
     database=_env.get("DB_NAME", "testPDMS"),
     charset="utf8mb4",
     cursorclass=pymysql.cursors.DictCursor,
