@@ -90,6 +90,10 @@ def _strip_ts(stem: str) -> str:
 
 
 IMAGE_SIGN_SECRET = _env.get("IMAGE_SIGN_SECRET", "")
+if not IMAGE_SIGN_SECRET:
+    logger.warning("[MacWeb] IMAGE_SIGN_SECRET 未設定，圖片簽名保護無效")
+if not (os.environ.get("WEB_SECRET_KEY") or _env.get("WEB_SECRET_KEY")):
+    logger.warning("[MacWeb] WEB_SECRET_KEY 未設定，使用預設 session 金鑰（僅限開發環境）")
 
 TASK_MAP = {
     "Ch1-t1": "string_blocks",
@@ -112,7 +116,7 @@ TASK_MAP = {
 }
 
 app = Flask(__name__, static_folder="public", static_url_path="")
-app.secret_key = os.environ.get("WEB_SECRET_KEY", "dev-only-secret-change-me")
+app.secret_key = os.environ.get("WEB_SECRET_KEY") or _env.get("WEB_SECRET_KEY", "dev-only-secret-change-me")
 
 DB = dict(
     host=_env.get("DB_HOST", "127.0.0.1"),
@@ -642,6 +646,12 @@ def api_submit_analysis():
 
     for file in files:
         if not file.filename:
+            continue
+        if not is_valid_filename(file.filename):
+            logger.warning("[Submit] 拒絕無效檔名: %s", file.filename)
+            continue
+        if get_extension(file.filename) not in ALLOWED_EXTENSIONS:
+            logger.warning("[Submit] 拒絕不允許的副檔名: %s", file.filename)
             continue
         save_path = uid_dir / file.filename
         file.save(save_path)
