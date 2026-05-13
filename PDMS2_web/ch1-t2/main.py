@@ -237,9 +237,9 @@ def analyze_image_side(img_path, model):
     GAP_THRESHOLD = GAP_THRESHOLD_RATIO * avg_width
 
     if len(centroids) >= 2:
-        gap_checker = CheckGap(gap_threshold=GAP_THRESHOLD, y_layer_threshold=15)
-        gap_pairs = gap_checker.check(centroids)
-        if len(gap_pairs) == 3:
+        gap_checker = CheckGap(gap_threshold=GAP_THRESHOLD)
+        gap_pairs = gap_checker.check(layers)
+        if len(gap_pairs) // 2 == 3:
             IS_GAP = True
         else:
             IS_GAP = False

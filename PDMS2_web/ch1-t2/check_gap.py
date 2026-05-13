@@ -1,41 +1,30 @@
 from math import hypot
-
 class CheckGap:
-    def __init__(self, gap_threshold=50, y_layer_threshold=30):
+    def __init__(self, gap_threshold=50):
         self.gap_threshold = gap_threshold
-        self.y_layer_threshold = y_layer_threshold
 
-    def check(self, centroids):
+    def check(self, layers):
         gap_pairs = []
 
-        for i, (cx, cy) in enumerate(centroids):
-            left_neighbor = None
-            right_neighbor = None
-            min_left_dx = float('inf')
-            min_right_dx = float('inf')
-
-            for j, (nx, ny) in enumerate(centroids):
-                if i == j:
-                    continue
-                if abs(ny - cy) > self.y_layer_threshold:
-                    continue  # 過濾非同層
-
-                dx = nx - cx
-                if dx < 0 and abs(dx) < min_left_dx:
-                    min_left_dx = abs(dx)
-                    left_neighbor = (nx, ny)
-                elif dx > 0 and abs(dx) < min_right_dx:
-                    min_right_dx = abs(dx)
-                    right_neighbor = (nx, ny)
-
-            if left_neighbor:
-                dist = abs(cx - left_neighbor[0])
+        # 遍歷已經分好的每一層
+        for layer in layers:
+            # 如果該層只有一塊積木，不可能有縫隙
+            if len(layer) < 2:
+                continue
+                
+            # 將該層積木依照 X 座標由左至右排序
+            sorted_layer = sorted(layer, key=lambda p: p[0])
+            
+            # 檢查相鄰兩塊積木的距離
+            for i in range(len(sorted_layer) - 1):
+                p1 = sorted_layer[i]
+                p2 = sorted_layer[i+1]
+                
+                dist = abs(p2[0] - p1[0])
                 if dist > self.gap_threshold:
-                    gap_pairs.append(((cx, cy), left_neighbor, dist))
+                    # 為了符合你原本 main.py 畫線雙向的邏輯 (len(gap_pairs) // 2)
+                    # 這裡加入雙向 pair
+                    gap_pairs.append((p1, p2, dist))
+                    gap_pairs.append((p2, p1, dist))
 
-            if right_neighbor:
-                dist = abs(cx - right_neighbor[0])
-                if dist > self.gap_threshold:
-                    gap_pairs.append(((cx, cy), right_neighbor, dist))
-        
         return gap_pairs
