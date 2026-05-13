@@ -141,7 +141,7 @@ def analyze_image_top(frame, model):
 
 # ================== 側視圖 (SIDE View) 分析 ==================
 CONF_SIDE = 0.7
-GAP_RATIO = 0.9
+GAP_RATIO = 0.5
 
 def analyze_image_side(IMG_PATH, model):
     frame = cv2.imread(IMG_PATH)
@@ -174,7 +174,7 @@ def analyze_image_side(IMG_PATH, model):
     # 自動分層
     sorted_items = sorted(enumerate(centroids), key=lambda x: x[1][1])
     avg_h = np.mean([b[3]-b[1] for b in yolo_boxes])
-    layer_threshold = avg_h * 0.3
+    layer_threshold = avg_h * 0.5
     layers = []
     current_layer = [sorted_items[0]]
     for i in range(1, len(sorted_items)):

@@ -37,5 +37,5 @@ class CheckGap:
                 dist = abs(cx - right_neighbor[0])
                 if dist > self.gap_threshold:
                     gap_pairs.append(((cx, cy), right_neighbor, dist))
-
+        
         return gap_pairs

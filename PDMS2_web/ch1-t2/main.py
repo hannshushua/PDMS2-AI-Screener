@@ -158,11 +158,13 @@ def analyze_image_top(frame, initial_get_point=2):
 
 # ================== 側視圖 (SIDE View) 分析 ==================
 CONF_SIDE = 0.8
-GAP_THRESHOLD_RATIO = 0.5
+
 
 def analyze_image_side(img_path, model):
     frame = cv2.imread(img_path)
     if frame is None: raise ValueError(f"讀取圖片失敗：{img_path}")
+    
+    # 若有設定 ROI，先進行裁切
     if SIDE_ROI_W > 0 and SIDE_ROI_H > 0:
         frame = frame[SIDE_ROI_Y:SIDE_ROI_Y+SIDE_ROI_H, SIDE_ROI_X:SIDE_ROI_X+SIDE_ROI_W].copy()
 
@@ -174,50 +176,85 @@ def analyze_image_side(img_path, model):
     masks = get_sam_masks_from_boxes(frame, yolo_boxes)
     
     centroids = []
+    mask_data = [] # 用來暫存 mask 與其對應的屬性
     SCORE = 2
     IS_GAP = False
 
+    # 1. 取得所有中心點，先不繪製顏色
     for i, mask in enumerate(masks):
         mask_uint8 = (mask * 255).astype(np.uint8)
         M = cv2.moments(mask_uint8)
-        color = np.random.randint(0, 255, (3,)).tolist()
-        
-        annotated_frame[mask] = annotated_frame[mask] * 0.4 + np.array(color) * 0.6
-        instance_mask_canvas[mask] = color
-
         if M["m00"] != 0:
             cx, cy = M["m10"] / M["m00"], M["m01"] / M["m00"]
             centroids.append((cx, cy))
-            cv2.circle(annotated_frame, (int(cx), int(cy)), 10, (255, 255, 255), -1)
-            cv2.putText(annotated_frame, f"{i}", (int(cx)-15, int(cy)-15), 
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 3)
+            mask_data.append({
+                "mask": mask, 
+                "centroid": (cx, cy), 
+                "index": i
+            })
 
+    # 2. 進行 Y 軸分層
+    grouper = LayerGrouping(layer_ratio=0.5)
+    layers = grouper.group_by_y(centroids, boxes=yolo_boxes)
+
+    # 3. 為每一層隨機生成一種專屬顏色 (RGB)
+    layer_colors = {}
+    for layer_idx in range(len(layers)):
+        # 避免顏色太暗，下限設為 50
+        layer_colors[layer_idx] = np.random.randint(50, 255, (3,)).tolist()
+
+    # 4. 根據所屬層級繪製 Mask 與標註文字
+    for item in mask_data:
+        mask = item["mask"]
+        cx, cy = item["centroid"]
+        idx_label = item["index"]
+        
+        # 尋找該積木屬於哪一 Layer
+        current_layer_idx = 0
+        for l_idx, layer in enumerate(layers):
+            if (cx, cy) in layer:
+                current_layer_idx = l_idx
+                break
+        
+        # 取得該層專屬顏色
+        color = layer_colors.get(current_layer_idx, [255, 255, 255])
+        
+        # 將 Mask 疊加到影像上
+        annotated_frame[mask] = annotated_frame[mask] * 0.4 + np.array(color) * 0.6
+        instance_mask_canvas[mask] = color
+
+        # 標註中心點
+        cv2.circle(annotated_frame, (int(cx), int(cy)), 10, (255, 255, 255), -1)
+        
+        # 標註層級與編號 (例如：L1-0 代表第 1 層的第 0 號積木)
+        text = f"L{current_layer_idx + 1}-{idx_label}"
+        cv2.putText(annotated_frame, text, (int(cx) - 25, int(cy) - 15), 
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
+
+    # ====== 5. 縫隙檢查與形狀分析邏輯維持原樣 ======
+    GAP_THRESHOLD_RATIO = 0.7
     avg_width = np.mean([b[2]-b[0] for b in yolo_boxes]) if len(yolo_boxes)>0 else 1.0
     GAP_THRESHOLD = GAP_THRESHOLD_RATIO * avg_width
 
     if len(centroids) >= 2:
-        gap_checker = CheckGap(gap_threshold=GAP_THRESHOLD, y_layer_threshold=30)
+        gap_checker = CheckGap(gap_threshold=GAP_THRESHOLD, y_layer_threshold=15)
         gap_pairs = gap_checker.check(centroids)
-        if gap_pairs:
-            IS_GAP = len(gap_pairs) // 2 == 3
+        if len(gap_pairs) == 3:
+            IS_GAP = True
+        else:
+            IS_GAP = False
+
+        if len(gap_pairs) > 0:
+            print(f"[DEBUG] 發現 {len(gap_pairs) // 2} 組縫隙，平均寬度: {avg_width:.2f}, 縫隙閾值: {GAP_THRESHOLD:.2f}", flush=True)
             for pair in gap_pairs:
                 p1, p2 = pair[0], pair[1]
                 cv2.line(annotated_frame, (int(p1[0]), int(p1[1])), (int(p2[0]), int(p2[1])), (0,0,255), 3)
-            if MODE_SIDE == 0: SCORE = 1
-        else:
-            if MODE_SIDE == 1: SCORE = 1
 
-    grouper = LayerGrouping(layer_ratio=0.3)
-    layers = grouper.group_by_y(centroids, boxes=yolo_boxes)
 
     msg = "OK"
-    if MODE_SIDE == 0:
-        res, msg = StairChecker().check(layers)
-        if not res: SCORE = 0
-    elif MODE_SIDE == 1:
-        avg_bw = avg_width // 2 if len(yolo_boxes)>0 else 0
-        res, msg = PyramidCheck().check_pyramid(layers, avg_bw, IS_GAP)
-        if not res: SCORE = 0
+    avg_bw = avg_width // 2 if len(yolo_boxes)>0 else 0
+    res, msg, SCORE = PyramidCheck().check_pyramid(layers, avg_bw, IS_GAP, SCORE)
+    if not res: SCORE = 0
 
     score_text = f"Side Score: {SCORE}/2 | {msg}"
     cv2.putText(annotated_frame, score_text, (10, annotated_frame.shape[0] - 20), 

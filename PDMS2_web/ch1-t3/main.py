@@ -161,7 +161,7 @@ def analyze_image_top(frame, model, initial_get_point=2):
 
 # ================== 側視圖 (SIDE View) 分析 ==================
 CONF_SIDE = 0.8
-GAP_THRESHOLD_RATIO = 1.05
+GAP_THRESHOLD_RATIO = 0.5
 
 def analyze_image_side(img_path, model):
     frame = cv2.imread(img_path)
@@ -210,7 +210,7 @@ def analyze_image_side(img_path, model):
     else:
         if MODE_SIDE == 1: SCORE = 1
 
-    layers = LayerGrouping(layer_ratio=0.3).group_by_y(centroids, boxes=yolo_boxes)
+    layers = LayerGrouping(layer_ratio=0.5).group_by_y(centroids, boxes=yolo_boxes)
     
     msg = "OK"
     if MODE_SIDE == 0:
