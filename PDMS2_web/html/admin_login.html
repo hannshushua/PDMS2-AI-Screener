@@ -213,7 +213,10 @@
         }
 
         const level = js.user.level;
-        if (level >= 1 && level <= 3) {
+        if (level === 1) {
+          showMessage("登入成功，準備進入報告頁面", "success");
+          setTimeout(() => { location.href = '/html/parent_dashboard.html'; }, 600);
+        } else if (level >= 2 && level <= 3) {
           showMessage("登入成功，準備進入平台", "success");
           setTimeout(() => { location.href = '/html/admin.html'; }, 600);
         } else {
