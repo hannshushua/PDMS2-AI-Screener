@@ -66,19 +66,11 @@ def _read_env_file(path: Path = ENV_PATH) -> dict:
 _env = _read_env_file()
 
 def _resolve_data_root() -> Path:
-    env_root = os.environ.get("PDMS_DATA_ROOT", "").strip()
-    if env_root:
-        return Path(env_root).expanduser().resolve()
-
-    default_root = (BASE_DIR / "PDMS2").resolve()
-    if default_root.exists():
-        return default_root
-
-    fallback_root = Path("/Users/yplab/Desktop/PDMS")
-    if fallback_root.exists():
-        return fallback_root.resolve()
-
-    return default_root
+    # 支援 os.environ (例如由 docker 傳入) 或由 .env 解析
+    env_root = os.environ.get("PDMS_DATA_ROOT", "").strip() or _env.get("PDMS_DATA_ROOT", "").strip()
+    if not env_root:
+        raise ValueError("發生錯誤: 未設定 PDMS_DATA_ROOT 環境變數，請務必在 .env 檔案中設定資料儲存路徑。")
+    return Path(env_root).expanduser().resolve()
 
 
 DATA_ROOT = _resolve_data_root()
@@ -87,7 +79,21 @@ ANALYSIS_KID_ROOT = ANALYSIS_ROOT / "kid"
 UID_PATTERN = re.compile(r"^[A-Za-z0-9_-]+$")
 FILE_PATTERN = re.compile(r"^[A-Za-z0-9._-]+$")
 ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
-IMAGE_SIGN_SECRET = "pdms2-temp-sign-secret-20260325"
+
+# Pattern to detect / strip embedded timestamps like _20260507_233320
+_TS_PATTERN = re.compile(r"_\d{8}_\d{6}")
+
+
+def _strip_ts(stem: str) -> str:
+    """Remove _YYYYMMDD_HHMMSS from a filename stem."""
+    return _TS_PATTERN.sub("", stem)
+
+
+IMAGE_SIGN_SECRET = _env.get("IMAGE_SIGN_SECRET", "")
+if not IMAGE_SIGN_SECRET:
+    logger.warning("[MacWeb] IMAGE_SIGN_SECRET 未設定，圖片簽名保護無效")
+if not (os.environ.get("WEB_SECRET_KEY") or _env.get("WEB_SECRET_KEY")):
+    logger.warning("[MacWeb] WEB_SECRET_KEY 未設定，使用預設 session 金鑰（僅限開發環境）")
 
 TASK_MAP = {
     "Ch1-t1": "string_blocks",
@@ -110,13 +116,13 @@ TASK_MAP = {
 }
 
 app = Flask(__name__, static_folder="public", static_url_path="")
-app.secret_key = os.environ.get("WEB_SECRET_KEY", "dev-only-secret-change-me")
+app.secret_key = os.environ.get("WEB_SECRET_KEY") or _env.get("WEB_SECRET_KEY", "dev-only-secret-change-me")
 
 DB = dict(
-    host=_env.get("DB_HOST", "100.117.109.112"),
+    host=_env.get("DB_HOST", "127.0.0.1"),
     port=int(_env.get("DB_PORT", 3306)),
-    user=_env.get("DB_USER", "yplab"),
-    password=_env.get("DB_PASSWORD", "brain0918"),
+    user=_env.get("DB_USER", ""),
+    password=_env.get("DB_PASSWORD", ""),
     database=_env.get("DB_NAME", "testPDMS"),
     charset="utf8mb4",
     cursorclass=pymysql.cursors.DictCursor,
@@ -332,26 +338,67 @@ def is_under_data_root(file_path: Path) -> bool:
 
 
 def resolve_image_path(uid: str, filename: str) -> Path | None:
-    # 先嘗試在 DATA_ROOT 中尋找
+    req_stem = Path(filename).stem
+    req_ext = Path(filename).suffix.lower()
+    # The stem requested by admin may lack a timestamp (e.g. "Ch1-t3-side_result").
+    # Normalise it so we can compare against stripped actual stems.
+    req_stem_stripped = _strip_ts(req_stem).lower()
+
+    def _fuzzy_match(directory: Path, check_data_root: bool = False) -> Path | None:
+        """Return the best (most-recently-timestamped) file whose stripped-stem matches."""
+        if not directory.exists() or not directory.is_dir():
+            return None
+        candidates: list[tuple[str, Path]] = []
+        for p in directory.iterdir():
+            if not p.is_file():
+                continue
+            if p.suffix.lower() != req_ext:
+                continue
+            if check_data_root and not is_under_data_root(p.resolve()):
+                continue
+            actual_stripped = _strip_ts(p.stem).lower()
+            if actual_stripped == req_stem_stripped:
+                # Extract the raw timestamp string (if any) for sorting
+                ts_match = _TS_PATTERN.search(p.stem)
+                ts_key = ts_match.group(0) if ts_match else ""
+                candidates.append((ts_key, p))
+        if not candidates:
+            return None
+        # Return the file with the latest timestamp
+        candidates.sort(key=lambda x: x[0], reverse=True)
+        return candidates[0][1].resolve()
+
+    # 1. 先嘗試在 DATA_ROOT 中精確尋找
     uid_dir = DATA_ROOT / uid
     if uid_dir.exists() and uid_dir.is_dir() and is_under_data_root(uid_dir):
         direct = (uid_dir / filename).resolve()
         if is_under_data_root(direct) and direct.exists() and direct.is_file():
             return direct
 
+        # 2. 大小寫不敏感精確比對
         lower_name = filename.lower()
         for p in uid_dir.iterdir():
             if p.is_file() and p.name.lower() == lower_name:
                 if is_under_data_root(p.resolve()):
                     return p.resolve()
 
-    # 如果在 DATA_ROOT 找不到，fallback 到 ANALYSIS_KID_ROOT/{uid} 做 case-insensitive 搜尋
+        # 3. 模糊比對：忽略檔名中嵌入的 timestamp（如 _20260507_233320）
+        fuzzy = _fuzzy_match(uid_dir, check_data_root=True)
+        if fuzzy:
+            return fuzzy
+
+    # 4. 如果在 DATA_ROOT 找不到，fallback 到 ANALYSIS_KID_ROOT/{uid}
     analysis_uid_dir = ANALYSIS_KID_ROOT / uid
     if analysis_uid_dir.exists() and analysis_uid_dir.is_dir():
         lower_name = filename.lower()
         for p in analysis_uid_dir.iterdir():
             if p.is_file() and p.name.lower() == lower_name:
                 return p.resolve()
+
+        # 5. ANALYSIS_KID_ROOT 中也做模糊比對
+        fuzzy = _fuzzy_match(analysis_uid_dir)
+        if fuzzy:
+            return fuzzy
 
     return None
 
@@ -599,6 +646,12 @@ def api_submit_analysis():
 
     for file in files:
         if not file.filename:
+            continue
+        if not is_valid_filename(file.filename):
+            logger.warning("[Submit] 拒絕無效檔名: %s", file.filename)
+            continue
+        if get_extension(file.filename) not in ALLOWED_EXTENSIONS:
+            logger.warning("[Submit] 拒絕不允許的副檔名: %s", file.filename)
             continue
         save_path = uid_dir / file.filename
         file.save(save_path)

@@ -4,16 +4,17 @@ from pathlib import Path
 from flask import Flask, send_from_directory, request, jsonify, session, redirect
 import threading
 from datetime import datetime, date
-import logging, uuid, os, secrets, queue
+import os, secrets, queue
 import hashlib
 import hmac
+import webbrowser
 from flask_cors import CORS
 import traceback
 from typing import Optional
 from werkzeug.exceptions import HTTPException
-import time
 import pymysql
 from urllib.parse import urlencode, urlparse
+import re
 
 print("====== CURRENT ADMIN SERVER IS RUNNING (PORT 8001) ======")
 
@@ -36,13 +37,16 @@ def _read_env_file(path: Path = ENV_PATH) -> dict:
     return values
 
 _env = _read_env_file()
-DATA_ROOT = Path(_env.get("PDMS_DATA_ROOT", "/Applications/XAMPP/xamppfiles/htdocs/PDMS")).expanduser()
+_pdms_data_root_str = _env.get("PDMS_DATA_ROOT", "").strip()
+if not _pdms_data_root_str:
+    raise ValueError("發生錯誤: .env 檔案中未設定 PDMS_DATA_ROOT，請務必設定資料儲存路徑。")
+DATA_ROOT = Path(_pdms_data_root_str).expanduser()
 
 DB = dict(
-    host=_env.get("DB_HOST", "100.117.109.112"),
+    host=_env.get("DB_HOST", "127.0.0.1"),
     port=int(_env.get("DB_PORT", 3306)),
-    user=_env.get("DB_USER", "yplab"),
-    password=_env.get("DB_PASSWORD", "brain0918"),
+    user=_env.get("DB_USER", ""),
+    password=_env.get("DB_PASSWORD", ""),
     database=_env.get("DB_NAME", "testPDMS"),
     charset="utf8mb4",
     cursorclass=pymysql.cursors.DictCursor,
@@ -116,17 +120,14 @@ def ensure_task(task_id: str):
     )
 
 
-def make_row_key(uid, task_id, test_date_str: str):
-    return f"{uid}|{task_id}|{test_date_str}"
-
 
 os.environ["PYTHONIOENCODING"] = "utf-8"
 os.environ["PYTHONUTF8"] = "1"
 
 PORT = 8001
 HOST = "127.0.0.1"
-MACWEB_BASE_URL = _env.get("MACWEB_BASE_URL", "http://100.117.109.112:3000").rstrip("/")
-IMAGE_SIGN_SECRET = "pdms2-temp-sign-secret-20260325"
+MACWEB_BASE_URL = _env.get("MACWEB_BASE_URL", "http://127.0.0.1:3000").rstrip("/")
+IMAGE_SIGN_SECRET = _env.get("IMAGE_SIGN_SECRET", "")
 
 app = Flask(__name__)
 app.secret_key = secrets.token_hex(16)
@@ -163,6 +164,20 @@ def sign_image(uid: str, filename: str) -> str:
     return hmac.new(
         IMAGE_SIGN_SECRET.encode("utf-8"), payload, hashlib.sha256
     ).hexdigest()
+
+
+def _extract_multi_view_base(filename: str, fallback: str = "") -> str:
+    """從帶時間戳的多視角檔名中提取基底（去除 -side/-top/-side_result/-top_result 後綴）。
+
+    例：
+        'ch1-t3_20260507_233320-side.jpg'        → 'ch1-t3_20260507_233320'
+        'ch1-t3_20260507_233320-side_result.jpg' → 'ch1-t3_20260507_233320'
+        'Ch1-t3-side_result.jpg'                 → 'Ch1-t3'  (無時間戳也能處理)
+    """
+    stem = Path(filename).stem  # 去掉副檔名
+    base = re.sub(r'-(side|top)(_result)?$', '', stem, flags=re.IGNORECASE)
+    # 若 sub 沒有任何替換（沒找到 -side/-top），base == stem，直接回傳 fallback
+    return base if base != stem else (fallback or stem)
 
 
 def _resolve_image_filename(uid: str, filename: str) -> str:
@@ -202,23 +217,6 @@ def extract_uid_filename(path_or_url: str):
     return None, None
 
 
-def result_filename(filename: str) -> str:
-    stem, ext = os.path.splitext(filename)
-    if not ext:
-        ext = ".jpg"
-    if stem.endswith("_result"):
-        return f"{stem}{ext}"
-    return f"{stem}_result{ext}"
-
-
-def original_filename(filename: str) -> str:
-    stem, ext = os.path.splitext(filename)
-    if stem.endswith("_result"):
-        stem = stem[:-7]
-    if not ext:
-        ext = ".jpg"
-    return f"{stem}{ext}"
-
 
 def write_to_console(message, level="INFO"):
     console_path = ROOT / "console.txt"
@@ -226,7 +224,7 @@ def write_to_console(message, level="INFO"):
     try:
         with open(console_path, "a", encoding="utf-8") as f:
             f.write(f"{ts} - {level} - {message}\n")
-    except:
+    except Exception:
         pass
 
 
@@ -291,10 +289,34 @@ def view_compare():
 
     content_html = ""
     if is_multi:
-        side_orig = build_signed_image_url(uid, f"{task_id}-side.jpg")
-        side_res = build_signed_image_url(uid, f"{task_id}-side_result.jpg")
-        top_orig = build_signed_image_url(uid, f"{task_id}-top.jpg")
-        top_res = build_signed_image_url(uid, f"{task_id}-top_result.jpg")
+        # ── 取得帶時間戳的真實基底名稱 ──────────────────────────────────────
+        # 優先從 URL 參數 img（scores 列表頁傳來的已簽名 URL）中提取
+        view_base = task_id  # fallback
+        img_uid, img_filename = extract_uid_filename(img_path)
+        if img_uid == uid and img_filename:
+            view_base = _extract_multi_view_base(img_filename, task_id)
+        else:
+            # img_path 沒資訊，改查資料庫取得最新的 result_img_path
+            try:
+                table = task_id_to_table(task_id)
+                row = db_exec(
+                    f"SELECT result_img_path FROM `{table}` WHERE uid=%s "
+                    f"ORDER BY test_date DESC, time DESC LIMIT 1",
+                    (uid,),
+                    fetch="one",
+                )
+                db_path = (row or {}).get("result_img_path") or ""
+                _, db_filename = extract_uid_filename(db_path)
+                if db_filename:
+                    view_base = _extract_multi_view_base(db_filename, task_id)
+            except Exception:
+                pass
+        # ────────────────────────────────────────────────────────────────────
+
+        side_orig = build_signed_image_url(uid, f"{view_base}-side.jpg")
+        side_res  = build_signed_image_url(uid, f"{view_base}-side_result.jpg")
+        top_orig  = build_signed_image_url(uid, f"{view_base}-top.jpg")
+        top_res   = build_signed_image_url(uid, f"{view_base}-top_result.jpg")
         content_html = f"""
         <div class=\"section-title\">側面視角 (Side View)</div>
         <div class=\"row\">
@@ -323,25 +345,12 @@ def view_compare():
 
         original_src = build_signed_image_url(uid, original_name)
         result_src = build_signed_image_url(uid, result_name)
-
-        if task_id == "Ch3-t1":
-            content_html = f"""
-            <div class=\"row\">
-                <div class=\"box\"><h3>原始照片 (Original)</h3><img src=\"{original_src}\" onerror=\"this.onerror=null;this.src='/images/no_image.png';\"></div>
-                <div class=\"box\"><h3>分析結果 (Result)</h3><img src=\"{result_src}\" onerror=\"this.onerror=null;this.src='/images/no_image.png';\"></div>
-            </div>
-            """
-        else:
-            normalized_original = original_name
-            normalized_result = result_name
-            original_src = build_signed_image_url(uid, normalized_original)
-            result_src = build_signed_image_url(uid, normalized_result)
-            content_html = f"""
-            <div class=\"row\">
-                <div class=\"box\"><h3>原始照片 (Original)</h3><img src=\"{original_src}\" onerror=\"this.onerror=null;this.src='/images/no_image.png';\"></div>
-                <div class=\"box\"><h3>分析結果 (Result)</h3><img src=\"{result_src}\" onerror=\"this.onerror=null;this.src='/images/no_image.png';\"></div>
-            </div>
-            """
+        content_html = f"""
+        <div class=\"row\">
+            <div class=\"box\"><h3>原始照片 (Original)</h3><img src=\"{original_src}\" onerror=\"this.onerror=null;this.src='/images/no_image.png';\"></div>
+            <div class=\"box\"><h3>分析結果 (Result)</h3><img src=\"{result_src}\" onerror=\"this.onerror=null;this.src='/images/no_image.png';\"></div>
+        </div>
+        """
 
     html = f"""
     <!DOCTYPE html>
@@ -386,7 +395,8 @@ def api_login():
         (account,),
         fetch="one",
     )
-    if (not row) or row["password"] != password:
+    stored_pw = (row["password"] or "").replace("-", "") if row else ""
+    if (not row) or stored_pw != password:
         return jsonify({"ok": False, "msg": "帳號或密碼錯誤"}), 401
     session["user"] = {
         "account": row["account"],
@@ -412,7 +422,6 @@ def api_logout():
     return jsonify({"ok": True})
 
 
-# 🆕 新增：讓家長 (Level 1) 修改自己的帳號或密碼
 @app.post("/api/auth/update_profile")
 def api_update_profile():
     user = session.get("user")
@@ -420,21 +429,29 @@ def api_update_profile():
         return jsonify({"ok": False, "msg": "未登入"}), 401
 
     data = request.get_json() or {}
-    new_acc = data.get("new_account", "").strip()
+    old_pwd = data.get("old_password", "").strip()
     new_pwd = data.get("new_password", "").strip()
-    old_acc = user["account"]
+    account = user["account"]
 
-    if not new_acc or not new_pwd:
-        return jsonify({"ok": False, "msg": "內容不可為空"}), 400
+    if not old_pwd or not new_pwd:
+        return jsonify({"ok": False, "msg": "所有欄位不可為空"}), 400
+
+    row = db_exec(
+        "SELECT password FROM admin_users WHERE account=%s",
+        (account,),
+        fetch="one",
+    )
+    stored_pw = (row["password"] or "").replace("-", "") if row else ""
+    if stored_pw != old_pwd:
+        return jsonify({"ok": False, "msg": "舊密碼錯誤"}), 403
 
     try:
-        # 更新 admin_users 列表
         db_exec(
-            "UPDATE admin_users SET account=%s, password=%s WHERE account=%s",
-            (new_acc, new_pwd, old_acc),
+            "UPDATE admin_users SET password=%s WHERE account=%s",
+            (new_pwd, account),
         )
-        session.pop("user", None)  # 修改完成後強制登出，要求重新登入
-        return jsonify({"ok": True, "msg": "修改成功，請使用新憑證重新登入"})
+        session.pop("user", None)
+        return jsonify({"ok": True, "msg": "密碼修改成功，請重新登入"})
     except Exception as e:
         return jsonify({"ok": False, "msg": str(e)}), 500
 
@@ -705,5 +722,10 @@ def internal_score_updated():
     return jsonify({"ok": True})
 
 
+def _open_browser():
+    webbrowser.open(f"http://{HOST}:{PORT}/")
+
+
 if __name__ == "__main__":
+    threading.Timer(0.5, _open_browser).start()
     app.run(host=HOST, port=PORT, debug=False, use_reloader=False)

@@ -82,6 +82,35 @@
       box-shadow: 0 0 0 4px rgba(255, 159, 67, 0.15);
     }
 
+    .pwd-wrapper {
+      position: relative;
+    }
+
+    .pwd-wrapper input {
+      padding-right: 52px;
+    }
+
+    .toggle-pwd {
+      position: absolute;
+      right: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: auto;
+      padding: 0;
+      margin: 0;
+      background: none;
+      border: none;
+      box-shadow: none;
+      cursor: pointer;
+      color: #C4A98A;
+      font-size: 20px;
+      line-height: 1;
+      transition: color 0.2s;
+    }
+
+    .toggle-pwd:hover { color: var(--primary); }
+    .toggle-pwd:active { transform: translateY(-50%); box-shadow: none; }
+
     button {
       width: 100%;
       padding: clamp(12px, 1.6vw, 18px);
@@ -135,8 +164,9 @@
     <div class="form-group">
       <input id="acc" type="text" placeholder="帳號 (家長請輸入小朋友 UID)" autocomplete="username">
     </div>
-    <div class="form-group">
+    <div class="form-group pwd-wrapper">
       <input id="pwd" type="password" placeholder="密碼 (預設為小朋友生日)" autocomplete="current-password">
+      <button type="button" class="toggle-pwd" id="togglePwd" aria-label="顯示或隱藏密碼">&#128065;</button>
     </div>
 
     <button id="btn">進入系統</button>
@@ -195,6 +225,16 @@
         btn.disabled = false;
       }
     }
+
+    document.getElementById('togglePwd').addEventListener('click', () => {
+      const isHidden = pwd.type === 'password';
+      pwd.type = isHidden ? 'text' : 'password';
+      togglePwd.innerHTML = isHidden ? '&#128064;' : '&#128065;';
+    });
+
+    window.addEventListener('pageshow', e => {
+      if (e.persisted) btn.disabled = false;
+    });
 
     btn.addEventListener('click', login);
     document.addEventListener('keydown', e => { if (e.key === 'Enter') login(); });

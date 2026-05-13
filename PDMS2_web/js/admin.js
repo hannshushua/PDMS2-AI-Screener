@@ -27,6 +27,8 @@
     if (userLevel < 2) {
       const addBtn = document.getElementById('btn-add-record');
       if (addBtn) addBtn.style.display = 'none';
+      const changePwdBtn = document.getElementById('btn-change-pwd');
+      if (changePwdBtn) changePwdBtn.style.display = '';
     }
     return true;
   }

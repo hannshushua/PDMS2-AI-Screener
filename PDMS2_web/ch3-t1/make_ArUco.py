@@ -41,7 +41,7 @@ outer_radius_px = mm2px(outer_radius_mm)
 inner_radius_px = mm2px(inner_radius_mm)
 
 # ArUco marker parameters
-aruco_size_mm = 20  # 3 cm
+aruco_size_mm = 20  # 2 cm
 aruco_size_px = mm2px(aruco_size_mm)
 aruco_dict = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_4X4_50)
 aruco_id = 0

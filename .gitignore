@@ -13,8 +13,12 @@ web.log
 *.gif
 *.zip
 
-# 特例：追蹤特定的海報或必要圖片
-!picture/poster.png
+# 特例：追蹤 picture/ 資料夾底下的所有圖片
+!picture/
+!picture/*.png
+!picture/*.jpg
+!picture/*.jpeg
+!picture/*.gif
 
 # 追蹤 PDMS2_web/images 內的素材
 !PDMS2_web/images/
@@ -24,7 +28,17 @@ web.log
 !PDMS2_web/images/icons/*.png
 !PDMS2_web/images/icons/*.jpg
 
+#追蹤 PDMS2_web/kid 內的素材（含子資料夾）
+!PDMS2_web/kid/
+!PDMS2_web/kid/**
+!PDMS2_web/kid/**/
 
+# 本地測試資料夾不追蹤
+PDMS2_web/kid/test*/
+
+# 追蹤 PDMS2_web/video 內的視頻檔案
+!PDMS2_web/video/
+!PDMS2_web/video/*.mp4
 # --- 開發環境與系統檔案 ---
 # macOS Finder metadata
 .DS_Store
@@ -45,6 +59,7 @@ __pycache__/
 # Claude AI 設定
 CLAUDE.md
 .claude
+AGENTS.md
 
 # 舊版本與暫存資料庫
 old_version/
@@ -54,3 +69,4 @@ testPDMS.sql
 
 #sam
 sam/
+

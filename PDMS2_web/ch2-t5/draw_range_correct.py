@@ -16,7 +16,7 @@ def draw_text_cn(img, text, pos, color=(255, 0, 0), size=24):
         font = ImageFont.truetype(font_path, size)
         draw.text(pos, text, font=font, fill=color)
         return cv2.cvtColor(np.array(img_pil), cv2.COLOR_RGB2BGR)
-    except:
+    except Exception:
         # Fallback
         cv2.putText(img, text, pos, cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2)
         return img

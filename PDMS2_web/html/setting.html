@@ -388,8 +388,7 @@
                         </div>
                         <div class="preview-actions">
                             <button id="previewSideBtn" class="btn secondary fat pill" type="button">👀 預覽旁邊</button>
-                            <button id="setRoiSideBtn" class="btn ghost fat pill" type="button" style="display:none;">📐
-                                設定裁切區域</button>
+                            <button id="setRoiSideBtn" class="btn ghost fat pill" type="button">📐 設定裁切區域</button>
                         </div>
                         <label
                             style="display:flex; align-items:center; gap:8px; margin-top:10px; font-size:14px; color:var(--text-muted);">
@@ -443,10 +442,26 @@
                 <a href="/html/start.html" class="btn ghost fat pill">← 回開始頁</a>
             </div>
 
+            <div class="calibration-panel" style="margin-top:20px">
+                <div class="calibration-head">
+                    <div>
+                        <h2 class="device-title">套用其他裝置的設定</h2>
+                        <p class="device-note">從遠端資料庫選取其他裝置曾儲存的參數，帶入後仍需按「儲存設定」才會生效。</p>
+                    </div>
+                </div>
+                <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap">
+                    <select id="machineConfigSelect" style="flex:1; min-width:200px; padding:10px 14px; border-radius:12px; border:1px solid #c8d9e6; font-size:14px; background:#fff;">
+                        <option value="">— 選擇裝置 —</option>
+                    </select>
+                    <button id="applyMachineConfigBtn" class="btn ghost fat pill" type="button" disabled>套用此設定</button>
+                </div>
+                <div id="machineConfigPreview" style="font-size:13px; color:#677582; min-height:20px;"></div>
+            </div>
+
             <div style="margin-top:18px">
                 <ul class="hint-list">
                     <li>建議先把上方與旁邊設定成不同的編號，避免拍照流程用到同一台攝影機。</li>
-                    <li>如果你的電腦只有一台攝影機，也可以先保留預設值 0 / 1，再依實際硬體調整。</li>
+                    <li>如果你的電腦只有一台攝影機，也可以先保留預設值 0 / 1，再依實際硬車調整。</li>
                     <li>設定會同步保存到本機與遠端資料庫，重開頁面或重啟服務後都會保留。</li>
                 </ul>
             </div>
@@ -675,17 +690,23 @@
                     w: Number.parseInt(result.settings.roi_w ?? 0, 10) || 0,
                     h: Number.parseInt(result.settings.roi_h ?? 0, 10) || 0,
                 };
-                return { top, side, px2cm, standardArea, roi };
+                const side_roi = {
+                    x: Number.parseInt(result.settings.side_roi_x ?? 0, 10) || 0,
+                    y: Number.parseInt(result.settings.side_roi_y ?? 0, 10) || 0,
+                    w: Number.parseInt(result.settings.side_roi_w ?? 0, 10) || 0,
+                    h: Number.parseInt(result.settings.side_roi_h ?? 0, 10) || 0,
+                };
+                return { top, side, px2cm, standardArea, roi, side_roi };
             } catch (error) {
-                return { ...DEFAULT_SETTING, roi: { x: 0, y: 0, w: 0, h: 0 } };
+                return { ...DEFAULT_SETTING, roi: { x: 0, y: 0, w: 0, h: 0 }, side_roi: { x: 0, y: 0, w: 0, h: 0 } };
             }
         }
 
-        async function saveManualRoi(roi) {
+        async function saveManualRoi(roi, role) {
             const response = await fetch("/camera-settings/roi", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(roi),
+                body: JSON.stringify({ roi, role }),
             });
 
             const result = await response.json().catch(() => ({}));
@@ -917,7 +938,7 @@
                 const response = await fetch("/camera-settings/select-roi", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ camera_index: cameraIndex, force_gui: forceGui }),
+                    body: JSON.stringify({ camera_index: cameraIndex, force_gui: forceGui, role: role }),
                 });
 
                 const result = await response.json();
@@ -935,11 +956,13 @@
                 }
 
                 const currentSetting = await readSetting();
-                const currentRoi = currentSetting.roi || { x: 0, y: 0, w: 0, h: 0 };
+                const currentRoi = role === PREVIEW_TOP 
+                    ? (currentSetting.roi || { x: 0, y: 0, w: 0, h: 0 }) 
+                    : (currentSetting.side_roi || { x: 0, y: 0, w: 0, h: 0 });
                 const defaultValue = `${currentRoi.x},${currentRoi.y},${currentRoi.w},${currentRoi.h}`;
                 const promptText = result.fallback === "manual"
-                    ? `${result.error || "OpenCV ROI 視窗無法開啟"}\n\n請輸入 ROI 座標，格式為 x,y,w,h：`
-                    : `${result.error || "ROI 選取失敗"}\n\n請輸入 ROI 座標，格式為 x,y,w,h：`;
+                    ? `${result.error || "OpenCV ROI 視窗無法開啟"}\n\n[${role}] 請輸入 ROI 座標，格式為 x,y,w,h：`
+                    : `${result.error || "ROI 選選失敗"}\n\n[${role}] 請輸入 ROI 座標，格式為 x,y,w,h：`;
                 const manualInput = window.prompt(promptText, defaultValue);
                 if (manualInput === null) {
                     statusText.textContent = "已取消 ROI 設定。";
@@ -953,7 +976,7 @@
                 }
 
                 const [x, y, w, h] = parts;
-                const savedRoiResult = await saveManualRoi({ x, y, w, h });
+                const savedRoiResult = await saveManualRoi({ x, y, w, h }, role);
                 const savedRoi = savedRoiResult.roi;
                 const remoteSynced = savedRoiResult.remote_sync?.synced !== false;
                 const remoteError = savedRoiResult.remote_sync?.error;
@@ -1046,6 +1069,75 @@
                 refreshDevicesBtn.disabled = false;
                 refreshDevicesBtn.textContent = "↻ 重新掃描";
             }
+        });
+
+        // ================== 其他裝置設定下拉 ==================
+        const machineConfigSelect = document.getElementById("machineConfigSelect");
+        const applyMachineConfigBtn = document.getElementById("applyMachineConfigBtn");
+        const machineConfigPreview = document.getElementById("machineConfigPreview");
+        let machineConfigs = [];
+
+        (async () => {
+            try {
+                const res = await fetch("/machine-configs");
+                const data = await res.json();
+                machineConfigs = data.configs || [];
+                machineConfigs.forEach((cfg, i) => {
+                    const label = `${cfg.hostname || cfg.machine_name || cfg.machine_id} （${cfg.updated_at || ""}）`;
+                    const opt = document.createElement("option");
+                    opt.value = i;
+                    opt.textContent = label;
+                    machineConfigSelect.appendChild(opt);
+                });
+            } catch (_) {}
+        })();
+
+        machineConfigSelect.addEventListener("change", () => {
+            const idx = machineConfigSelect.value;
+            if (idx === "") {
+                applyMachineConfigBtn.disabled = true;
+                machineConfigPreview.textContent = "";
+                return;
+            }
+            const cfg = machineConfigs[Number(idx)];
+            applyMachineConfigBtn.disabled = false;
+            const roiStr = cfg.roi_w > 0
+                ? `上方 ROI: ${cfg.roi_x},${cfg.roi_y},${cfg.roi_w},${cfg.roi_h}`
+                : "上方 ROI: 未設定";
+            const sideRoiStr = cfg.side_roi_w > 0
+                ? `側面 ROI: ${cfg.side_roi_x},${cfg.side_roi_y},${cfg.side_roi_w},${cfg.side_roi_h}`
+                : "側面 ROI: 未設定";
+            machineConfigPreview.textContent =
+                `px2cm: ${Number(cfg.px2cm).toFixed(4)}　標準面積: ${cfg.standard_area}　${roiStr}　${sideRoiStr}`;
+        });
+
+        applyMachineConfigBtn.addEventListener("click", () => {
+            const idx = machineConfigSelect.value;
+            if (idx === "") return;
+            const cfg = machineConfigs[Number(idx)];
+            px2cmInput.value = Number(cfg.px2cm).toFixed(4);
+            standardAreaInput.value = cfg.standard_area;
+            statusText.textContent =
+                `已帶入「${cfg.hostname || cfg.machine_name}」的 px2cm / 標準面積 / ROI，請確認後按儲存設定。`;
+            statusText.className = "status ok";
+
+            // ROI 直接儲存（不需要相機，直接呼叫 API）
+            const promises = [];
+            if (cfg.roi_w > 0 && cfg.roi_h > 0) {
+                promises.push(fetch("/camera-settings/roi", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ roi: { x: cfg.roi_x, y: cfg.roi_y, w: cfg.roi_w, h: cfg.roi_h }, role: "top" }),
+                }));
+            }
+            if (cfg.side_roi_w > 0 && cfg.side_roi_h > 0) {
+                promises.push(fetch("/camera-settings/roi", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ roi: { x: cfg.side_roi_x, y: cfg.side_roi_y, w: cfg.side_roi_w, h: cfg.side_roi_h }, role: "side" }),
+                }));
+            }
+            Promise.all(promises).catch(() => {});
         });
 
         window.addEventListener("pagehide", () => {

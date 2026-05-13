@@ -16,7 +16,6 @@ from pathlib import Path
 from segment_anything import sam_model_registry, SamPredictor
 
 # ================== 核心設定 ==================
-CROP_RATIO = 0.85
 CONF = 0.5
 BASE_DIR = Path(__file__).resolve().parent
 
@@ -50,12 +49,6 @@ def return_score(score):
     sys.exit(int(score))
 
 # ================== 輔助函數 ==================
-def crop_center(frame, ratio=CROP_RATIO):
-    h, w = frame.shape[:2]
-    margin_ratio = (1 - ratio) / 2
-    x_start, x_end = int(w * margin_ratio), int(w * (1 - margin_ratio))
-    y_start, y_end = int(h * margin_ratio), int(h * (1 - margin_ratio))
-    return frame[y_start:y_end, x_start:x_end]
 
 def get_sam_masks(frame, boxes):
     if len(boxes) == 0: return []
@@ -131,7 +124,6 @@ def score_from_image(img_path, conf=CONF):
     img = cv2.imread(img_path)
     if img is None: raise ValueError(f"讀取圖片失敗：{img_path}")
 
-    img = crop_center(img, CROP_RATIO)
     display_frame = img.copy()
 
     gray = cv2.cvtColor(display_frame, cv2.COLOR_BGR2GRAY)
