@@ -338,7 +338,7 @@ if __name__ == "__main__":
         if len(sys.argv) >= 3:
             try:
                 num_captures = int(sys.argv[2])
-            except:
+            except Exception:
                 print(f"警告: 無法解析拍攝次數 '{sys.argv[2]}'，使用預設值 3")
 
         # 多次拍攝測量

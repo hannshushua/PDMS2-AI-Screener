@@ -13,7 +13,6 @@ import subprocess
 import tempfile
 import threading
 import webbrowser
-import unicodedata
 import socket
 from pathlib import Path
 from datetime import datetime, date
@@ -37,12 +36,12 @@ for d in [CH3_T4_DIR, CH2_T1_DIR]:
         sys.path.insert(0, str(d))
 
 try:
-    from paper_contour_model import detect_paper_contour_by_model
+    from paper_contour_model import detect_paper_contour_by_model  # type: ignore
 except Exception:
     detect_paper_contour_by_model = None
 
 try:
-    from px2cm import get_pixel_per_cm_from_image
+    from px2cm import get_pixel_per_cm_from_image  # type: ignore
 except Exception:
     get_pixel_per_cm_from_image = None
 
@@ -50,24 +49,6 @@ DEFAULT_TOP_CAMERA_INDEX = 0
 DEFAULT_SIDE_CAMERA_INDEX = 1  # Ch5-t1 使用
 DEFAULT_PX2CM = 47.4416628993705
 DEFAULT_CH3_T4_STANDARD_AREA = 34769
-_MACOS_CAMERA_IGNORE_KEYWORDS = (
-    "iphone",
-    "ipad",
-    "ipod",
-    "facetime",
-    "continuity",
-    "手機",
-    "內建",
-    "built-in",
-    "built in",
-    "apple",
-    "phone",
-)
-
-
-def _default_camera_scan_max_index() -> int:
-    # 預設掃描範圍
-    return 3
 
 
 def _should_skip_opencv_roi_gui(force_gui: bool = False) -> bool:
@@ -169,57 +150,6 @@ if __name__ == "__main__":
 
         write_to_console(f"[ROI] 子行程回傳失敗: {error_message}", "WARN")
         return {"success": False, "error": error_message, "fallback": "manual"}
-
-
-def _is_ignored_macos_camera(name: str, model_id: str = "", unique_id: str = "") -> bool:
-    # 正規化名稱 (處理特殊字體 𝓦𝓲𝓵𝓵𝓲𝓪𝓶 -> William)
-    norm_name = unicodedata.normalize("NFKD", name).encode("ascii", "ignore").decode("ascii")
-    haystack = f"{name} {norm_name} {model_id} {unique_id}".lower()
-    
-    # 強制過濾 iPhone 型號
-    if "iphone" in model_id.lower() or "iphone" in name.lower():
-        return True
-        
-    return any(keyword in haystack for keyword in _MACOS_CAMERA_IGNORE_KEYWORDS)
-
-
-def _read_macos_camera_labels() -> list:
-    try:
-        result = subprocess.run(
-            ["system_profiler", "SPCameraDataType"],
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="ignore",
-            check=True,
-        )
-    except Exception:
-        return []
-
-    cameras = []
-    current = None
-
-    for raw_line in result.stdout.splitlines():
-        stripped = raw_line.strip()
-
-        if not stripped:
-            continue
-
-        if raw_line.startswith("    ") and not raw_line.startswith("        ") and stripped.endswith(":"):
-            name = stripped[:-1].strip()
-            current = {"name": name, "model_id": "", "unique_id": ""}
-            cameras.append(current)
-            continue
-
-        if current is None:
-            continue
-
-        if stripped.startswith("Model ID:"):
-            current["model_id"] = stripped.split(":", 1)[1].strip()
-        elif stripped.startswith("Unique ID:"):
-            current["unique_id"] = stripped.split(":", 1)[1].strip()
-
-    return cameras
 
 
 def _read_env_file(path: Path = ENV_PATH) -> dict:
@@ -326,6 +256,10 @@ def _settings_to_remote_row(settings: dict) -> dict:
             "roi_y": int(settings.get("roi_y", 0)),
             "roi_w": int(settings.get("roi_w", 0)),
             "roi_h": int(settings.get("roi_h", 0)),
+            "side_roi_x": int(settings.get("side_roi_x", 0)),
+            "side_roi_y": int(settings.get("side_roi_y", 0)),
+            "side_roi_w": int(settings.get("side_roi_w", 0)),
+            "side_roi_h": int(settings.get("side_roi_h", 0)),
             "px2cm": float(settings.get("px2cm", 0) or 0),
             "standard_area": float(settings.get("standard_area", 0) or 0),
         }
@@ -350,6 +284,10 @@ def _sync_machine_config_to_remote(settings: dict) -> dict:
             roi_y,
             roi_w,
             roi_h,
+            side_roi_x,
+            side_roi_y,
+            side_roi_w,
+            side_roi_h,
             px2cm,
             standard_area,
             updated_at,
@@ -364,6 +302,10 @@ def _sync_machine_config_to_remote(settings: dict) -> dict:
             %(roi_y)s,
             %(roi_w)s,
             %(roi_h)s,
+            %(side_roi_x)s,
+            %(side_roi_y)s,
+            %(side_roi_w)s,
+            %(side_roi_h)s,
             %(px2cm)s,
             %(standard_area)s,
             NOW(),
@@ -377,6 +319,10 @@ def _sync_machine_config_to_remote(settings: dict) -> dict:
             roi_y = VALUES(roi_y),
             roi_w = VALUES(roi_w),
             roi_h = VALUES(roi_h),
+            side_roi_x = VALUES(side_roi_x),
+            side_roi_y = VALUES(side_roi_y),
+            side_roi_w = VALUES(side_roi_w),
+            side_roi_h = VALUES(side_roi_h),
             px2cm = VALUES(px2cm),
             standard_area = VALUES(standard_area),
             updated_at = NOW()
@@ -474,6 +420,10 @@ def read_app_settings() -> dict:
         "roi_y": int(env.get("PDMS2_ROI_Y", 0)),
         "roi_w": int(env.get("PDMS2_ROI_W", 0)),
         "roi_h": int(env.get("PDMS2_ROI_H", 0)),
+        "side_roi_x": int(env.get("PDMS2_SIDE_ROI_X", 0)),
+        "side_roi_y": int(env.get("PDMS2_SIDE_ROI_Y", 0)),
+        "side_roi_w": int(env.get("PDMS2_SIDE_ROI_W", 0)),
+        "side_roi_h": int(env.get("PDMS2_SIDE_ROI_H", 0)),
     }
 
 
@@ -488,6 +438,12 @@ def read_camera_setting() -> dict:
             "w": settings["roi_w"],
             "h": settings["roi_h"],
         },
+        "side_roi": {
+            "x": settings["side_roi_x"],
+            "y": settings["side_roi_y"],
+            "w": settings["side_roi_w"],
+            "h": settings["side_roi_h"],
+        },
     }
 
 
@@ -498,8 +454,9 @@ def save_app_settings(
     standard_area: Optional[int] = None,
     macweb_base_url: Optional[str] = None,
     roi: Optional[dict] = None,
+    side_roi: Optional[dict] = None,
 ) -> dict:
-    global TOP, SIDE, PX2CM, STANDARD_AREA, ROI_X, ROI_Y, ROI_W, ROI_H
+    global TOP, SIDE, PX2CM, STANDARD_AREA, ROI_X, ROI_Y, ROI_W, ROI_H, SIDE_ROI_X, SIDE_ROI_Y, SIDE_ROI_W, SIDE_ROI_H
 
     settings = read_app_settings()
     updates = {}
@@ -534,6 +491,16 @@ def save_app_settings(
         updates["PDMS2_ROI_W"] = str(settings["roi_w"])
         updates["PDMS2_ROI_H"] = str(settings["roi_h"])
 
+    if side_roi is not None:
+        settings["side_roi_x"] = int(side_roi.get("x", 0))
+        settings["side_roi_y"] = int(side_roi.get("y", 0))
+        settings["side_roi_w"] = int(side_roi.get("w", 0))
+        settings["side_roi_h"] = int(side_roi.get("h", 0))
+        updates["PDMS2_SIDE_ROI_X"] = str(settings["side_roi_x"])
+        updates["PDMS2_SIDE_ROI_Y"] = str(settings["side_roi_y"])
+        updates["PDMS2_SIDE_ROI_W"] = str(settings["side_roi_w"])
+        updates["PDMS2_SIDE_ROI_H"] = str(settings["side_roi_h"])
+
     if updates:
         _write_env_file(updates)
 
@@ -547,6 +514,10 @@ def save_app_settings(
     ROI_Y = int(settings["roi_y"])
     ROI_W = int(settings["roi_w"])
     ROI_H = int(settings["roi_h"])
+    SIDE_ROI_X = int(settings["side_roi_x"])
+    SIDE_ROI_Y = int(settings["side_roi_y"])
+    SIDE_ROI_W = int(settings["side_roi_w"])
+    SIDE_ROI_H = int(settings["side_roi_h"])
     settings["remote_sync"] = remote_sync
     return settings
 
@@ -629,7 +600,10 @@ ROI_X = _app_setting["roi_x"]
 ROI_Y = _app_setting["roi_y"]
 ROI_W = _app_setting["roi_w"]
 ROI_H = _app_setting["roi_h"]
-CROP_RATE = 0.8  # 預設裁切比例
+SIDE_ROI_X = _app_setting["side_roi_x"]
+SIDE_ROI_Y = _app_setting["side_roi_y"]
+SIDE_ROI_W = _app_setting["side_roi_w"]
+SIDE_ROI_H = _app_setting["side_roi_h"]
 current_camera_index = TOP  # 追蹤目前啟動的相機
 # ====================
 
@@ -649,15 +623,7 @@ DB = dict(
     autocommit=True,
 )
 
-# ====== MAC 上傳設定（從 .env 讀取） ======
-MAC_UPLOAD_HOST = _env.get("MAC_UPLOAD_HOST", "127.0.0.1")
-MAC_UPLOAD_PORT = int(_env.get("MAC_UPLOAD_PORT", 22))
-MAC_UPLOAD_USER = _env.get("MAC_UPLOAD_USER", "")
-MAC_UPLOAD_PASSWORD = _env.get("MAC_UPLOAD_PASSWORD", "")
-MAC_UPLOAD_KEY_PATH = _env.get("MAC_UPLOAD_KEY_PATH", "")
-MAC_UPLOAD_REMOTE_BASE = _env.get("MAC_UPLOAD_REMOTE_BASE", "Desktop/PDMS")
 MACWEB_BASE_URL = _env.get("MACWEB_BASE_URL", "http://127.0.0.1:3000")
-# =====================================================
 
 DEMO_MODE = _env.get("DEMO_MODE", "false").strip().lower() == "true"
 
@@ -705,16 +671,6 @@ TASK_MAP = {
 }
 
 
-# def ensure_user(uid: str, name: Optional[str] = None, birthday: Optional[str] = None):
-#     try:
-#         db_exec(
-#             "INSERT INTO user_list(uid, name, birthday) VALUES (%s,%s,%s) "
-#             "ON DUPLICATE KEY UPDATE name=COALESCE(VALUES(name),name), birthday=COALESCE(VALUES(birthday),birthday)",
-#             (uid, name, birthday),
-#         )
-#         write_to_console(f"[DB] ensure_user ok: uid={uid}", "INFO")
-#     except Exception as e:
-#         raise
 def user_exists(uid: str) -> bool:
     """回傳這個 uid 是否存在於 user_list"""
     row = db_exec(
@@ -1021,7 +977,7 @@ def measure_standard_area_from_frame():
 
 
 clear_console_log()
-logger = setup_console_logging()
+setup_console_logging()
 app.logger.disabled = True
 logging.getLogger("flask.app").disabled = True
 write_to_console("=== 遠端 PyMySQL 模式 ===", "INFO")
@@ -1293,85 +1249,6 @@ def normalize_task_id(task_code_raw: str) -> str:
     return task_code_raw
 
 
-def resolve_script_path(task_code: str) -> Optional[Path]:
-    guesses = [
-        ROOT / task_code / "main.py",
-        ROOT / task_code.lower() / "main.py",
-        ROOT / normalize_task_id(task_code) / "main.py",
-        ROOT / normalize_task_id(task_code).lower() / "main.py",
-    ]
-    for p in guesses:
-        if p.exists():
-            return p
-    return None
-
-
-def upload_task_images_to_mac(uid: str, img_id: str) -> bool:
-    uploader_path = ROOT / "scripts" / "upload_to_mac_pdms.py"
-    if not uploader_path.exists():
-        write_to_console(f"[UPLOAD] 找不到上傳腳本: {uploader_path}", "ERROR")
-        return False
-
-    if not MAC_UPLOAD_HOST or not MAC_UPLOAD_USER:
-        write_to_console(
-            "[UPLOAD] 缺少上傳設定：MAC_UPLOAD_HOST 或 MAC_UPLOAD_USER", "ERROR"
-        )
-        return False
-
-    cmd = [
-        sys.executable,
-        str(uploader_path),
-        "--uid",
-        uid,
-        "--img-id",
-        img_id,
-        "--root",
-        str(ROOT),
-        "--host",
-        MAC_UPLOAD_HOST,
-        "--port",
-        str(MAC_UPLOAD_PORT),
-        "--user",
-        MAC_UPLOAD_USER,
-        "--remote-base",
-        MAC_UPLOAD_REMOTE_BASE,
-    ]
-
-    if MAC_UPLOAD_PASSWORD:
-        cmd.extend(["--password", MAC_UPLOAD_PASSWORD])
-    if MAC_UPLOAD_KEY_PATH:
-        cmd.extend(["--key-path", MAC_UPLOAD_KEY_PATH])
-
-    creation_flags = 0
-    if sys.platform == "win32":
-        creation_flags = subprocess.CREATE_NO_WINDOW
-
-    result = subprocess.run(
-        cmd,
-        cwd=ROOT,
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
-        creationflags=creation_flags,
-    )
-
-    if result.stdout:
-        write_to_console(f"[UPLOAD][stdout]\n{result.stdout}", "INFO")
-    if result.stderr:
-        write_to_console(f"[UPLOAD][stderr]\n{result.stderr}", "ERROR")
-
-    if result.returncode == 0:
-        write_to_console(f"[UPLOAD] 上傳成功: uid={uid}, img_id={img_id}", "INFO")
-        return True
-
-    write_to_console(
-        f"[UPLOAD] 上傳失敗(returncode={result.returncode}): uid={uid}, img_id={img_id}",
-        "ERROR",
-    )
-    return False
-
-
 def _find_task_image(uid: str, img_id: str) -> Optional[Path]:
     for ext in [".jpg", ".jpeg", ".png", ".webp"]:
         candidate = ROOT / "kid" / uid / f"{img_id}{ext}"
@@ -1437,7 +1314,7 @@ def _notify_admin_score_updated():
 
 
 def run_analysis_in_background(
-    task_id, uid, img_id, script_path, stair_type=None, cam_index_input=None
+    task_id, uid, img_id, cam_index_input=None
 ):
     try:
         processing_tasks[task_id] = {
@@ -1452,7 +1329,7 @@ def run_analysis_in_background(
         task_id_std = normalize_task_id(img_id)
 
         # ★ Ch5-t1 特殊處理：本機執行 main.py（非遠端）
-        if img_id.lower() in ["ch5-t1", "ch5-t1"]:
+        if img_id.lower() == "ch5-t1":
             write_to_console(f"[Ch5-t1] 執行本機遊戲程式", "INFO")
             
             # 取得 side camera index
@@ -1567,12 +1444,11 @@ def run_python_script():
             return jsonify({"success": False, "error": "缺少參數"}), 400
 
         task_id = str(uuid.uuid4())
-        stair_type = session.get("stair_type")
         processing_tasks[task_id] = {"status": "pending", "uid": uid}
 
         t = Thread(
             target=run_analysis_in_background,
-            args=(task_id, uid, img_id, None, stair_type, cam_index_input),
+            args=(task_id, uid, img_id, cam_index_input),
         )
         t.daemon = True
         t.start()
@@ -1728,10 +1604,8 @@ def init_camera(camera_index=TOP):
                     raise Exception("相機已開啟但無法讀取畫面")
 
             h, w = frame.shape[:2]
-            crop_w = int(w * CROP_RATE)
-            crop_h = int(h * CROP_RATE)
             write_to_console(
-                f"相機開啟成功，來源: {camera_index}，原始尺寸: {w}x{h}，裁切後: {crop_w}x{crop_h}",
+                f"相機開啟成功，來源: {camera_index}，原始尺寸: {w}x{h}",
                 "INFO",
             )
             camera_active = True
@@ -1750,13 +1624,13 @@ def select_camera_roi():
         data = request.get_json() or {}
         camera_index = int(data.get("camera_index", TOP))
         force_gui = bool(data.get("force_gui", False))
+        role = data.get("role", "top")
         
         write_to_console(f"[ROI] 準備開啟相機 Index {camera_index} 進行 ROI 選取", "INFO")
         
         # 暫時停止目前可能正在運行的相機預覽
         release_camera()
         time.sleep(0.5)
-
         cap = _open_camera_capture(camera_index)
         if not cap or not cap.isOpened():
             return jsonify({
@@ -1794,8 +1668,11 @@ def select_camera_roi():
         roi_result = _select_roi_in_subprocess(frame, window_name)
         if roi_result.get("success"):
             new_roi = roi_result["roi"]
-            save_app_settings(roi=new_roi)
-            write_to_console(f"[ROI] 已更新座標：{new_roi}", "INFO")
+            if role == "side":
+                save_app_settings(side_roi=new_roi)
+            else:
+                save_app_settings(roi=new_roi)
+            write_to_console(f"[ROI] 已更新 {role} 座標：{new_roi}", "INFO")
             return jsonify({"success": True, "roi": new_roi})
 
         write_to_console(f"[ROI] 使用子行程框選失敗: {roi_result.get('error', 'unknown')}", "WARN")
@@ -1811,6 +1688,7 @@ def update_camera_roi():
     try:
         data = request.get_json() or {}
         roi_data = data.get("roi") if isinstance(data.get("roi"), dict) else data
+        role = data.get("role", "top")
 
         x = int(roi_data.get("x", 0))
         y = int(roi_data.get("y", 0))
@@ -1821,37 +1699,70 @@ def update_camera_roi():
             return jsonify({"success": False, "error": "ROI 座標必須為非負整數，且寬高需大於 0"})
 
         new_roi = {"x": x, "y": y, "w": w, "h": h}
-        save_app_settings(roi=new_roi)
-        write_to_console(f"[ROI] 已手動更新座標：{new_roi}", "INFO")
+        if role == "side":
+            save_app_settings(side_roi=new_roi)
+        else:
+            save_app_settings(roi=new_roi)
+        write_to_console(f"[ROI] 已手動更新 {role} 座標：{new_roi}", "INFO")
         return jsonify({"success": True, "roi": new_roi})
     except Exception as e:
         write_to_console(f"[ROI] 手動更新失敗: {e}", "ERROR")
         return jsonify({"success": False, "error": str(e)}), 500
 
 
-def crop_center(frame, _dummy=None):
+@app.get("/machine-configs")
+def list_machine_configs():
+    try:
+        rows = db_exec(
+            """
+            SELECT machine_id, machine_name, hostname,
+                   top_camera_index, side_camera_index,
+                   roi_x, roi_y, roi_w, roi_h,
+                   IFNULL(side_roi_x, 0) AS side_roi_x,
+                   IFNULL(side_roi_y, 0) AS side_roi_y,
+                   IFNULL(side_roi_w, 0) AS side_roi_w,
+                   IFNULL(side_roi_h, 0) AS side_roi_h,
+                   px2cm, standard_area,
+                   DATE_FORMAT(updated_at, '%%Y-%%m-%%d %%H:%%i') AS updated_at
+            FROM machine_configs
+            ORDER BY updated_at DESC
+            """,
+            fetch="all",
+        )
+        return jsonify({"success": True, "configs": rows or []})
+    except Exception as e:
+        write_to_console(f"[machine-configs] 查詢失敗: {e}", "ERROR")
+        return jsonify({"success": False, "configs": [], "error": str(e)}), 500
+
+
+def crop_center(frame, camera_idx=None):
     """
-    裁切影像：優先使用 .env 中的 ROI 固定座標。
+    裁切影像：優先使用 .env 中的 ROI 座標。
     """
     h, w = frame.shape[:2]
     
-    # 檢查是否有自定義 ROI
-    if ROI_W > 0 and ROI_H > 0:
-        x1, y1 = max(0, ROI_X), max(0, ROI_Y)
-        x2, y2 = min(w, ROI_X + ROI_W), min(h, ROI_Y + ROI_H)
-        
-        if x2 > x1 and y2 > y1:
-            return frame[y1:y2, x1:x2]
+    if camera_idx == SIDE:
+        # 使用側面鏡頭的 ROI
+        if SIDE_ROI_W > 0 and SIDE_ROI_H > 0:
+            x1, y1 = max(0, SIDE_ROI_X), max(0, SIDE_ROI_Y)
+            x2, y2 = min(w, SIDE_ROI_X + SIDE_ROI_W), min(h, SIDE_ROI_Y + SIDE_ROI_H)
+            if x2 > x1 and y2 > y1:
+                return frame[y1:y2, x1:x2]
+    else:
+        # 預設或上方鏡頭的 ROI
+        if ROI_W > 0 and ROI_H > 0:
+            x1, y1 = max(0, ROI_X), max(0, ROI_Y)
+            x2, y2 = min(w, ROI_X + ROI_W), min(h, ROI_Y + ROI_H)
+            if x2 > x1 and y2 > y1:
+                return frame[y1:y2, x1:x2]
 
     # 退回到預設固定座標 (原本程式碼的 fallback)
-    x, y, target_w, target_h = 164, 95, 1166, 909
-    return frame[y : y + target_h, x : x + target_w]
+    fallback_x, fallback_y, target_w, target_h = 164, 95, 1166, 909
+    return frame[fallback_y : fallback_y + target_h, fallback_x : fallback_x + target_w]
 
-
-NO_CROP_TASKS = {"ch1-t2", "ch1-t3", "ch1-t4"}
 
 def get_frame():
-    global camera, camera_active, current_task_id, current_camera_index
+    global camera, camera_active, current_camera_index
     try:
         with camera_lock:
             if not camera_active or camera is None:
@@ -1860,8 +1771,8 @@ def get_frame():
             if not ret:
                 return None
 
-            if current_task_id not in NO_CROP_TASKS and current_camera_index != SIDE:
-                frame = crop_center(frame, CROP_RATE)
+            # 套用對應鏡頭的裁切
+            frame = crop_center(frame, current_camera_index)
 
             _, buffer = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 85])
             return buffer.tobytes()
@@ -1892,7 +1803,7 @@ def start_opencv_camera():
         if init_camera(cam_index):
             return jsonify({"success": True})
         return jsonify({"success": False}), 500
-    except:
+    except Exception:
         return jsonify({"success": False}), 500
 
 
