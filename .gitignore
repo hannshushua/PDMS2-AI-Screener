@@ -66,3 +66,8 @@ testPDMS.sql
 
 #sam
 sam/
+
+# AI 模型檔（大型二進位，不進 git）
+*.pth
+*.pt
+*.ckpt
