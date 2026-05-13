@@ -22,14 +22,16 @@ class PyramidCheck:
         #比較最下面那一層的平均x 和 中層 頂層的差距 在一定範圍內就是金字塔
         return (abs(avg_xs[0] - avg_xs[1]) <= x_threshold and abs(avg_xs[0] - avg_xs[2]) <= x_threshold)
 
-    def check_pyramid(self, layers, block_width, gap):
+    def check_pyramid(self, layers, block_width, gap, score):
         
         
         if len(layers) != 3:
             return False, "Not 3 layers"
 
-
-        if self.is_pyramid_shape(layers, x_threshold=block_width) and gap:
-            return True, "Pyramid shape!"
+        if self.is_pyramid_shape(layers, x_threshold=block_width):
+            if gap:
+                return True, "Pyramid shape with gap!", 2
+            else:
+                return True, "Pyramid shape but no gap!", 1
         else:
-            return False, "Not pyramid"
+            return False, "Not pyramid", 0
