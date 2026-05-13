@@ -91,14 +91,7 @@ def main(CAMERA_INDEX, VIDEO_PATH, UID):
                 print("無法讀取畫面")
                 break
             
-            # 流程一致：裁切中間區域
-            scale = 0.7
-            height, width = frame.shape[:2]
-            crop_height = int(height * scale)
-            crop_width = int(width * scale)
-            start_x = (width - crop_width) // 2
-            start_y = (height - crop_height) // 2
-            frame = frame[start_y:start_y + crop_height, start_x:start_x + crop_width]
+            # 移除手動裁切，改由 run.py 的 ROI 處理
             display_frame = frame.copy()
 
             # 流程一致：初始化 VideoWriter

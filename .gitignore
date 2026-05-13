@@ -32,6 +32,10 @@ web.log
 !PDMS2_web/kid/
 !PDMS2_web/kid/**
 !PDMS2_web/kid/**/
+
+# 本地測試資料夾不追蹤
+PDMS2_web/kid/test*/
+
 # 追蹤 PDMS2_web/video 內的視頻檔案
 !PDMS2_web/video/
 !PDMS2_web/video/*.mp4
@@ -55,6 +59,7 @@ __pycache__/
 # Claude AI 設定
 CLAUDE.md
 .claude
+AGENTS.md
 
 # 舊版本與暫存資料庫
 old_version/
@@ -64,3 +69,4 @@ testPDMS.sql
 
 #sam
 sam/
+

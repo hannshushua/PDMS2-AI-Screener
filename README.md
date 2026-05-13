@@ -1,4 +1,4 @@
-[![Python](https://img.shields.io/badge/Python-3.10+-blue.svg)](https://www.python.org/)
+[![Python](https://img.shields.io/badge/Python-3.9-blue.svg)](https://www.python.org/)
 [![Frontend](https://img.shields.io/badge/Frontend-HTML5%2FCSS3%2FJavaScript-E34F26.svg)](https://developer.mozilla.org/docs/Web)
 [![Backend](https://img.shields.io/badge/Backend-Flask-black.svg)](https://flask.palletsprojects.com/)
 [![CORS](https://img.shields.io/badge/CORS-Flask--CORS-3776AB.svg)](https://flask-cors.readthedocs.io/)
@@ -14,7 +14,7 @@
 
 # 運用AI技術判別精細動作之早期遲緩篩檢系統
 
-**專案名稱：** 運用AI技術判別精細動作之早期遲緩篩檢系統  
+**專案名稱：** AI-based_Early_Screening_System_for_Fine_Motor_Developmental_Delay_Identification  
 **團隊名稱：** 現在發現還不遲，你說對不隊(獵遲小隊)  
 **團隊成員：** 洪偉城、林政維、呂昊宸、林宛瑩  
 **指導教授：** 趙一平教授

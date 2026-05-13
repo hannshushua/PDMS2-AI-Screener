@@ -4,14 +4,14 @@ from pathlib import Path
 from flask import Flask, send_from_directory, request, jsonify, session, redirect
 import threading
 from datetime import datetime, date
-import logging, uuid, os, secrets, queue
+import os, secrets, queue
 import hashlib
 import hmac
+import webbrowser
 from flask_cors import CORS
 import traceback
 from typing import Optional
 from werkzeug.exceptions import HTTPException
-import time
 import pymysql
 from urllib.parse import urlencode, urlparse
 import re
@@ -37,13 +37,16 @@ def _read_env_file(path: Path = ENV_PATH) -> dict:
     return values
 
 _env = _read_env_file()
-DATA_ROOT = Path(_env.get("PDMS_DATA_ROOT", "/Applications/XAMPP/xamppfiles/htdocs/PDMS")).expanduser()
+_pdms_data_root_str = _env.get("PDMS_DATA_ROOT", "").strip()
+if not _pdms_data_root_str:
+    raise ValueError("發生錯誤: .env 檔案中未設定 PDMS_DATA_ROOT，請務必設定資料儲存路徑。")
+DATA_ROOT = Path(_pdms_data_root_str).expanduser()
 
 DB = dict(
-    host=_env.get("DB_HOST", "100.117.109.112"),
+    host=_env.get("DB_HOST", "127.0.0.1"),
     port=int(_env.get("DB_PORT", 3306)),
-    user=_env.get("DB_USER", "yplab"),
-    password=_env.get("DB_PASSWORD", "brain0918"),
+    user=_env.get("DB_USER", ""),
+    password=_env.get("DB_PASSWORD", ""),
     database=_env.get("DB_NAME", "testPDMS"),
     charset="utf8mb4",
     cursorclass=pymysql.cursors.DictCursor,
@@ -117,17 +120,14 @@ def ensure_task(task_id: str):
     )
 
 
-def make_row_key(uid, task_id, test_date_str: str):
-    return f"{uid}|{task_id}|{test_date_str}"
-
 
 os.environ["PYTHONIOENCODING"] = "utf-8"
 os.environ["PYTHONUTF8"] = "1"
 
 PORT = 8001
 HOST = "127.0.0.1"
-MACWEB_BASE_URL = _env.get("MACWEB_BASE_URL", "http://100.117.109.112:3000").rstrip("/")
-IMAGE_SIGN_SECRET = "pdms2-temp-sign-secret-20260325"
+MACWEB_BASE_URL = _env.get("MACWEB_BASE_URL", "http://127.0.0.1:3000").rstrip("/")
+IMAGE_SIGN_SECRET = _env.get("IMAGE_SIGN_SECRET", "")
 
 app = Flask(__name__)
 app.secret_key = secrets.token_hex(16)
@@ -217,23 +217,6 @@ def extract_uid_filename(path_or_url: str):
     return None, None
 
 
-def result_filename(filename: str) -> str:
-    stem, ext = os.path.splitext(filename)
-    if not ext:
-        ext = ".jpg"
-    if stem.endswith("_result"):
-        return f"{stem}{ext}"
-    return f"{stem}_result{ext}"
-
-
-def original_filename(filename: str) -> str:
-    stem, ext = os.path.splitext(filename)
-    if stem.endswith("_result"):
-        stem = stem[:-7]
-    if not ext:
-        ext = ".jpg"
-    return f"{stem}{ext}"
-
 
 def write_to_console(message, level="INFO"):
     console_path = ROOT / "console.txt"
@@ -241,7 +224,7 @@ def write_to_console(message, level="INFO"):
     try:
         with open(console_path, "a", encoding="utf-8") as f:
             f.write(f"{ts} - {level} - {message}\n")
-    except:
+    except Exception:
         pass
 
 
@@ -362,25 +345,12 @@ def view_compare():
 
         original_src = build_signed_image_url(uid, original_name)
         result_src = build_signed_image_url(uid, result_name)
-
-        if task_id == "Ch3-t1":
-            content_html = f"""
-            <div class=\"row\">
-                <div class=\"box\"><h3>原始照片 (Original)</h3><img src=\"{original_src}\" onerror=\"this.onerror=null;this.src='/images/no_image.png';\"></div>
-                <div class=\"box\"><h3>分析結果 (Result)</h3><img src=\"{result_src}\" onerror=\"this.onerror=null;this.src='/images/no_image.png';\"></div>
-            </div>
-            """
-        else:
-            normalized_original = original_name
-            normalized_result = result_name
-            original_src = build_signed_image_url(uid, normalized_original)
-            result_src = build_signed_image_url(uid, normalized_result)
-            content_html = f"""
-            <div class=\"row\">
-                <div class=\"box\"><h3>原始照片 (Original)</h3><img src=\"{original_src}\" onerror=\"this.onerror=null;this.src='/images/no_image.png';\"></div>
-                <div class=\"box\"><h3>分析結果 (Result)</h3><img src=\"{result_src}\" onerror=\"this.onerror=null;this.src='/images/no_image.png';\"></div>
-            </div>
-            """
+        content_html = f"""
+        <div class=\"row\">
+            <div class=\"box\"><h3>原始照片 (Original)</h3><img src=\"{original_src}\" onerror=\"this.onerror=null;this.src='/images/no_image.png';\"></div>
+            <div class=\"box\"><h3>分析結果 (Result)</h3><img src=\"{result_src}\" onerror=\"this.onerror=null;this.src='/images/no_image.png';\"></div>
+        </div>
+        """
 
     html = f"""
     <!DOCTYPE html>
@@ -752,5 +722,10 @@ def internal_score_updated():
     return jsonify({"ok": True})
 
 
+def _open_browser():
+    webbrowser.open(f"http://{HOST}:{PORT}/")
+
+
 if __name__ == "__main__":
+    threading.Timer(0.5, _open_browser).start()
     app.run(host=HOST, port=PORT, debug=False, use_reloader=False)

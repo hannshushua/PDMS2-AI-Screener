@@ -97,7 +97,7 @@ class Analyze_graphics:
                 parts = filename.split('_')
                 if len(parts) >= 2 and parts[1].isdigit():
                     max_index = max(max_index, int(parts[1]))
-            except:
+            except Exception:
                 continue
         return max_index + 1
 

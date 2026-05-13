@@ -66,19 +66,11 @@ def _read_env_file(path: Path = ENV_PATH) -> dict:
 _env = _read_env_file()
 
 def _resolve_data_root() -> Path:
-    env_root = os.environ.get("PDMS_DATA_ROOT", "").strip()
-    if env_root:
-        return Path(env_root).expanduser().resolve()
-
-    default_root = (BASE_DIR / "PDMS2").resolve()
-    if default_root.exists():
-        return default_root
-
-    fallback_root = Path("/Users/yplab/Desktop/PDMS")
-    if fallback_root.exists():
-        return fallback_root.resolve()
-
-    return default_root
+    # 支援 os.environ (例如由 docker 傳入) 或由 .env 解析
+    env_root = os.environ.get("PDMS_DATA_ROOT", "").strip() or _env.get("PDMS_DATA_ROOT", "").strip()
+    if not env_root:
+        raise ValueError("發生錯誤: 未設定 PDMS_DATA_ROOT 環境變數，請務必在 .env 檔案中設定資料儲存路徑。")
+    return Path(env_root).expanduser().resolve()
 
 
 DATA_ROOT = _resolve_data_root()
@@ -97,7 +89,11 @@ def _strip_ts(stem: str) -> str:
     return _TS_PATTERN.sub("", stem)
 
 
-IMAGE_SIGN_SECRET = "pdms2-temp-sign-secret-20260325"
+IMAGE_SIGN_SECRET = _env.get("IMAGE_SIGN_SECRET", "")
+if not IMAGE_SIGN_SECRET:
+    logger.warning("[MacWeb] IMAGE_SIGN_SECRET 未設定，圖片簽名保護無效")
+if not (os.environ.get("WEB_SECRET_KEY") or _env.get("WEB_SECRET_KEY")):
+    logger.warning("[MacWeb] WEB_SECRET_KEY 未設定，使用預設 session 金鑰（僅限開發環境）")
 
 TASK_MAP = {
     "Ch1-t1": "string_blocks",
@@ -120,13 +116,13 @@ TASK_MAP = {
 }
 
 app = Flask(__name__, static_folder="public", static_url_path="")
-app.secret_key = os.environ.get("WEB_SECRET_KEY", "dev-only-secret-change-me")
+app.secret_key = os.environ.get("WEB_SECRET_KEY") or _env.get("WEB_SECRET_KEY", "dev-only-secret-change-me")
 
 DB = dict(
-    host=_env.get("DB_HOST", "100.117.109.112"),
+    host=_env.get("DB_HOST", "127.0.0.1"),
     port=int(_env.get("DB_PORT", 3306)),
-    user=_env.get("DB_USER", "yplab"),
-    password=_env.get("DB_PASSWORD", "brain0918"),
+    user=_env.get("DB_USER", ""),
+    password=_env.get("DB_PASSWORD", ""),
     database=_env.get("DB_NAME", "testPDMS"),
     charset="utf8mb4",
     cursorclass=pymysql.cursors.DictCursor,
@@ -650,6 +646,12 @@ def api_submit_analysis():
 
     for file in files:
         if not file.filename:
+            continue
+        if not is_valid_filename(file.filename):
+            logger.warning("[Submit] 拒絕無效檔名: %s", file.filename)
+            continue
+        if get_extension(file.filename) not in ALLOWED_EXTENSIONS:
+            logger.warning("[Submit] 拒絕不允許的副檔名: %s", file.filename)
             continue
         save_path = uid_dir / file.filename
         file.save(save_path)

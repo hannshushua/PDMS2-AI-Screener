@@ -1,7 +1,6 @@
 # get_pixel_per_cm.py
 import cv2
 import numpy as np
-import json
 import os
 
 def get_pixel_per_cm_from_a4(image_path, real_width_cm=29.7, show_debug=False, save_cropped=True, output_folder="cropped_a4"):
@@ -76,17 +75,7 @@ def get_pixel_per_cm_from_a4(image_path, real_width_cm=29.7, show_debug=False, s
         
         print(f"A4區域已儲存至: {cropped_path}")
 
-    # 儲存像素比例資料
-    json_path = "px2cm.json"
-    data = {
-        "pixel_per_cm": pixel_per_cm, 
-        "image_path": image_path,
-        "cropped_path": cropped_path
-    }
-    with open(json_path, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
-    
-    return pixel_per_cm, json_path, cropped_path
+    return pixel_per_cm, None, cropped_path
 
 def crop_a4_region_simple(image_path, output_folder="cropped_a4"):
     """簡單版本：只裁切A4區域，不計算像素比例"""
@@ -146,7 +135,7 @@ if __name__ == "__main__":
     image_path = r''
     
     # 方法1: 完整功能（計算像素比例 + 儲存裁切圖）
-    pixel_per_cm, json_path, cropped_path = get_pixel_per_cm_from_a4(
+    pixel_per_cm, _, cropped_path = get_pixel_per_cm_from_a4(
         image_path, 
         show_debug=True, 
         save_cropped=True,
