@@ -1,185 +1,190 @@
-# main.py — 單線分析
-# 輸入：kid\<uid>\<img_id>.jpg
-# 輸出結果圖：kid\<uid>\<img_id>_result.jpg，並以 exit code 回傳分數
-
+# main.py — ch2-t4 描水平線 AI 評分版 (Web 後端呼叫用)
 import os
-import json
-import cv2
 import sys
+import cv2
+import numpy as np
+import torch
+import segmentation_models_pytorch as smp
+from skimage.morphology import skeletonize
 from pathlib import Path
-from final import find_baseline_and_show_all
-import socket
-import uuid
 
-try:
-    import pymysql
-except ImportError:
-    pymysql = None
+from get_cm1 import perform_crop
 
 BASE_DIR = Path(__file__).resolve().parent
-ENV_PATH = BASE_DIR.parent / ".env"
-DEFAULT_PX2CM = 1.0
-
-
-def _read_env_value(key, default):
-    """從 .env 讀取值"""
-    if not ENV_PATH.exists():
-        return default
-    try:
-        for raw_line in ENV_PATH.read_text(encoding="utf-8").splitlines():
-            line = raw_line.strip()
-            if not line or line.startswith("#") or "=" not in raw_line:
-                continue
-            current_key, value = raw_line.split("=", 1)
-            if current_key.strip() == key:
-                parsed = float(value.strip())
-                return parsed if parsed > 0 else default
-    except Exception:
-        return default
-    return default
-
-
-def _get_machine_id() -> str:
-    """取得或生成本機識別碼"""
-    if ENV_PATH.exists():
-        try:
-            for raw_line in ENV_PATH.read_text(encoding="utf-8").splitlines():
-                line = raw_line.strip()
-                if line.startswith("MACHINE_ID="):
-                    machine_id = line.split("=", 1)[1].strip()
-                    if machine_id:
-                        return machine_id
-        except Exception:
-            pass
-    hostname = socket.gethostname()
-    return str(uuid.uuid5(uuid.NAMESPACE_DNS, hostname))
-
-
-def _read_db_config(key: str, default: float) -> float:
-    """優先從資料庫讀取本機配置，失敗時回退到 .env"""
-    if pymysql is None:
-        return _read_env_value(key, default)
-    
-    if not ENV_PATH.exists():
-        return default
-    
-    db_config = {}
-    try:
-        for raw_line in ENV_PATH.read_text(encoding="utf-8").splitlines():
-            line = raw_line.strip()
-            if not line or line.startswith("#") or "=" not in raw_line:
-                continue
-            k, v = raw_line.split("=", 1)
-            k = k.strip()
-            v = v.strip().strip('"').strip("'")
-            if k in {"DB_HOST", "DB_PORT", "DB_USER", "DB_PASSWORD", "DB_NAME"}:
-                db_config[k] = v
-    except Exception:
-        return _read_env_value(key, default)
-    
-    if not all(k in db_config for k in ["DB_HOST", "DB_PORT", "DB_USER", "DB_PASSWORD", "DB_NAME"]):
-        return _read_env_value(key, default)
-    
-    try:
-        machine_id = _get_machine_id()
-        conn = pymysql.connect(
-            host=db_config["DB_HOST"],
-            port=int(db_config["DB_PORT"]),
-            user=db_config["DB_USER"],
-            password=db_config["DB_PASSWORD"],
-            database=db_config["DB_NAME"],
-            charset="utf8mb4",
-            autocommit=True,
-        )
-        with conn.cursor(pymysql.cursors.DictCursor) as cur:
-            sql_map = {"PDMS2_PX2CM": "px2cm"}
-            if key not in sql_map:
-                conn.close()
-                return _read_env_value(key, default)
-            col_name = sql_map[key]
-            cur.execute(
-                f"SELECT {col_name} FROM machine_configs WHERE machine_id=%s LIMIT 1",
-                (machine_id,)
-            )
-            row = cur.fetchone()
-            conn.close()
-            if row and col_name in row:
-                parsed = float(row[col_name])
-                return parsed if parsed > 0 else default
-    except Exception as e:
-        print(f"[DB] 查詢遠端配置失敗: {e}，回退到本機 .env", file=sys.stderr)
-    
-    return _read_env_value(key, default)
-
-
-def _read_env_float(key, default):
-    """向後相容：改用 _read_db_config"""
-    return _read_db_config(key, default)
-
+LINE_MODEL_PATH = os.path.join(BASE_DIR, "best_model.pth")
+PIXEL_PER_CM = 100        # AI 裁切後固定 100px = 1cm
+DEVIATION_THRESHOLD = 0.1  # 偏離超過 0.1cm 算一次事件
 
 def return_score(score: int):
-    """用 exit code 回傳分數（與 ch2-t5 / ch3-t1 一致）"""
     sys.exit(int(score))
 
+def get_red_line_data(img, model, device):
+    """滑動視窗偵測紅線，選最寬最扁的連通元件後骨架化"""
+    h, w = img.shape[:2]
+    img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    full_mask = np.zeros((h, w), dtype=np.uint8)
+    patch_size = 512
+
+    for y in range(0, h, patch_size):
+        for x in range(0, w, patch_size):
+            y_end = min(y + patch_size, h)
+            x_end = min(x + patch_size, w)
+            patch = img_rgb[y:y_end, x:x_end]
+            ph, pw = patch.shape[:2]
+
+            input_p = np.zeros((512, 512, 3), dtype=np.uint8)
+            input_p[:ph, :pw] = patch
+            input_t = (
+                torch.from_numpy(input_p).permute(2, 0, 1).float() / 255.0
+                - torch.tensor([0.485, 0.456, 0.406]).view(3, 1, 1)
+            ) / torch.tensor([0.229, 0.224, 0.225]).view(3, 1, 1)
+
+            with torch.no_grad():
+                pred = model(input_t.unsqueeze(0).to(device))
+                p_mask = (pred > 0.4).cpu().numpy().squeeze()
+
+            full_mask[y:y_end, x:x_end] = (p_mask[:ph, :pw] * 255).astype(np.uint8)
+
+    # sw*(sw/sh) 打分：選最寬最扁的（水平線特徵）
+    num, labels, stats, _ = cv2.connectedComponentsWithStats(full_mask, connectivity=8)
+    best_label, max_score = -1, 0
+    for i in range(1, num):
+        x_s, y_s, sw, sh, area = stats[i]
+        score = sw * (sw / (sh + 1))
+        if score > max_score and sw > 150:
+            max_score = score
+            best_label = i
+
+    if best_label == -1:
+        return None, None
+
+    line_mask = np.zeros_like(full_mask)
+    line_mask[labels == best_label] = 1
+    skel = skeletonize(line_mask).astype(np.uint8) * 255
+    y_coords, x_coords = np.where(skel > 0)
+    return list(zip(x_coords, y_coords)), skel
+
+def get_filtered_black_y(img):
+    """在畫面中心 ROI 找印刷黑色基準線的 y 座標"""
+    h, w = img.shape[:2]
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    roi_top, roi_bottom = h // 4, 3 * h // 4
+    roi = gray[roi_top:roi_bottom, :]
+
+    _, b_mask = cv2.threshold(roi, 50, 255, cv2.THRESH_BINARY_INV)
+    num, labels, stats, _ = cv2.connectedComponentsWithStats(b_mask, connectivity=8)
+
+    best_y, max_w = None, 0
+    for i in range(1, num):
+        x, y, sw, sh, area = stats[i]
+        if sw > max_w and sw > 4 * sh:
+            max_w = sw
+            best_y = y + sh / 2 + roi_top
+
+    return best_y
+
+def evaluate_pdms2(red_points, y_black):
+    """
+    PDMS-2 評分邏輯：
+    2分：偏離次數 <= 2 且最大偏離 < 1.2cm
+    1分：偏離次數 3-4 次，或 2 次但距離過大
+    0分：偏離次數 > 4 次
+    """
+    if not red_points:
+        return 0, 0, 0
+
+    dists = [abs(y - y_black) / PIXEL_PER_CM for x, y in red_points]
+    max_dist = max(dists)
+
+    dev_count = 0
+    is_deviating = False
+    for d in dists:
+        if d > DEVIATION_THRESHOLD:
+            if not is_deviating:
+                dev_count += 1
+                is_deviating = True
+        else:
+            is_deviating = False
+
+    if dev_count > 4:
+        score = 0
+    elif 3 <= dev_count <= 4:
+        score = 1
+    elif dev_count <= 2 and max_dist < 1.2:
+        score = 2
+    else:
+        score = 1
+
+    return score, dev_count, max_dist
 
 def main():
-    # ========= 1) 讀比例檔 (優先從遠端資料庫) =========
-    pixel_per_cm = _read_db_config("PDMS2_PX2CM", DEFAULT_PX2CM)
-    if pixel_per_cm <= 0:
-        print(".env 內的 PDMS2_PX2CM 非正值", file=sys.stderr)
-        return_score(-1)
+    if len(sys.argv) < 3:
+        print("用法：python main.py <uid> <img_id>", file=sys.stderr)
+        return_score(0)
 
-    # ========= 2) 解析參數（與其他關卡介面一致） =========
-    if len(sys.argv) > 2:
-        uid = sys.argv[1]
-        img_id = sys.argv[2]
-        image_path = os.path.join("kid", uid, f"{img_id}.jpg")
-    else:
-        print("參數不足，需要 uid 與 img_id", file=sys.stderr)
-        return_score(-1)
+    uid = sys.argv[1]
+    img_id = sys.argv[2]
 
-    if not os.path.exists(image_path):
-        print(f"找不到圖片：{image_path}", file=sys.stderr)
-        return_score(-1)
+    origin_path = os.path.join(BASE_DIR.parent, "kid", uid, f"{img_id}.jpg")
+    cropped_path = os.path.join(BASE_DIR.parent, "kid", uid, f"{img_id}_cropped.jpg")
+    result_path = os.path.join(BASE_DIR.parent, "kid", uid, f"{img_id}_result.jpg")
 
-    # ========= 3) 讀影像 =========
-    img = cv2.imread(image_path)
+    # 1. AI 紙張裁切
+    print("開始 AI 紙張裁切...")
+    if not perform_crop(origin_path, cropped_path):
+        print("裁切失敗", file=sys.stderr)
+        return_score(0)
+
+    img = cv2.imread(cropped_path)
     if img is None:
-        print(f"圖片讀取失敗：{image_path}", file=sys.stderr)
-        return_score(-1)
+        print(f"裁切圖讀取失敗：{cropped_path}", file=sys.stderr)
+        return_score(0)
 
-    # ========= 4) 分析（盡量相容：優先取回 (score, result_img)） =========
-    result_img = None
-    try:
-        # 新版：回傳 (score, result_img)
-        score, result_img = find_baseline_and_show_all(img, pixel_per_cm)
-    except TypeError:
-        # 舊版只回傳 score
-        score = find_baseline_and_show_all(img, pixel_per_cm)
-        result_img = img  # 至少把原圖當成結果圖
+    # 2. 載入紅線模型
+    if not os.path.exists(LINE_MODEL_PATH):
+        print(f"找不到紅線模型：{LINE_MODEL_PATH}", file=sys.stderr)
+        return_score(0)
 
-    # ========= 5) 準備輸出路徑：kid/<uid>/<img_id>_result.jpg =========
-    result_dir = os.path.join("kid", uid)
-    os.makedirs(result_dir, exist_ok=True)
-    out_path = os.path.join(result_dir, f"{img_id}_result.jpg")
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    model = smp.Unet(encoder_name="resnet34", in_channels=3, classes=1, activation='sigmoid')
+    model.load_state_dict(torch.load(LINE_MODEL_PATH, map_location=device))
+    model.to(device).eval()
 
-    # 沒有 result_img 的話就存原圖
-    to_save = result_img if result_img is not None else img
-    ok = cv2.imwrite(out_path, to_save)
-    if not ok:
-        print(f"⚠️ 影像儲存失敗：{out_path}", file=sys.stderr)
-        # 但還是回傳分數，避免整個流程中斷
+    # 3. 偵測紅線與黑色基準線
+    red_points, skel_red = get_red_line_data(img, model, device)
+    y_black = get_filtered_black_y(img)
 
-    print("完成結果圖：", out_path)
-    print("得分：", score)
+    score = 0
+    result_img = img.copy()
 
-    # ========= 6) 用 exit code 回傳分數 =========
+    if red_points and y_black is not None:
+        score, dev_count, max_dist = evaluate_pdms2(red_points, y_black)
+
+        visible_skel = cv2.dilate(skel_red, np.ones((3, 3), np.uint8))
+        result_img[visible_skel > 0] = [0, 255, 255]
+        cv2.line(result_img, (0, int(y_black)), (img.shape[1], int(y_black)), (255, 255, 0), 3)
+        cv2.putText(
+            result_img,
+            f"Score: {score} | Devs: {dev_count} | Max: {max_dist:.2f}cm",
+            (50, 150),
+            cv2.FONT_HERSHEY_SIMPLEX, 3, (0, 255, 0), 5
+        )
+    else:
+        print("偵測失敗：找不到紅線或基準線", file=sys.stderr)
+        cv2.putText(
+            result_img,
+            "Detection Failed",
+            (50, 150),
+            cv2.FONT_HERSHEY_SIMPLEX, 3, (0, 0, 255), 5
+        )
+
+    cv2.imwrite(result_path, result_img)
+    print(f"結果圖已儲存：{result_path} | 得分：{score}")
     return_score(score)
-
 
 if __name__ == "__main__":
     try:
         main()
     except Exception as e:
         print(f"[ERROR] ch2-t4 執行失敗: {e}", file=sys.stderr)
-        return_score(-1)
+        return_score(0)
