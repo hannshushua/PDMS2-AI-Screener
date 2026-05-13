@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<title>Ch2-t5 塗色模板</title>
+<style>
+  @page {
+    size: A4 portrait;
+    margin: 0;
+  }
+
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  body {
+    width: 21cm;
+    height: 29.7cm;
+    display: flex;
+    flex-direction: column;
+    background: white;
+  }
+
+  /* 每一半是 A5 橫向：21cm 寬 x 14.85cm 高 */
+  .half {
+    width: 21cm;
+    height: 14.85cm;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  /* 橫向虛線，對折更準確 */
+  .divider {
+    width: 21cm;
+    height: 0;
+    border-top: 0.05cm dashed #aaa;
+    flex-shrink: 0;
+  }
+
+  .lines-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4cm;
+  }
+
+  .line {
+    width: 7cm;
+    height: 0.3cm;
+    background-color: black;
+  }
+</style>
+</head>
+<body>
+  <div class="half">
+    <div class="lines-wrapper">
+      <div class="line"></div>
+      <div class="line"></div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="half">
+    <div class="lines-wrapper">
+      <div class="line"></div>
+      <div class="line"></div>
+    </div>
+  </div>
+</body>
+</html>

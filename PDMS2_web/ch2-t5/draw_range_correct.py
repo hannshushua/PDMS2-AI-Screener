@@ -74,13 +74,13 @@ def analyze_paint(image, y_top, y_bot, show_windows=False):
     msg = ""
     if ratio > 0.5:
         if protrude_count == 0:
-            score = 3
-            msg = "塗色完整且未出界"
-        elif protrude_count <= 2:
             score = 2
+            msg = "塗色完整且未出界"
+        elif protrude_count == 1:
+            score = 1
             msg = "塗色完整但稍有出界"
         else:
-            score = 1
+            score = 0
             msg = "塗色完整但出界嚴重"
     elif ratio > 0.2:
         score = 1
