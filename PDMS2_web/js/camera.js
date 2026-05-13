@@ -293,42 +293,27 @@ async function pollGameState(uid) {
   }, 500); // 每0.5秒更新一次
 }
 
-<<<<<<< Updated upstream
 async function captureWithCamera(cameraIndex, fullTaskId, uid, skipStart = false) {
   try {
     if (!skipStart) {
-=======
-async function captureWithCamera(cameraIndex, fullTaskId, uid, skipSwitch = false) {
-  try {
-    if (!skipSwitch) {
-      // 需要切換相機（例如從 side 切到 top）才呼叫 start
->>>>>>> Stashed changes
       const switchResponse = await fetch('/opencv-camera/start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ camera_index: cameraIndex })
       });
-<<<<<<< Updated upstream
       if (!switchResponse.ok) {
         throw new Error('切換相機失敗');
       }
-=======
-      if (!switchResponse.ok) throw new Error('切換相機失敗');
->>>>>>> Stashed changes
       await new Promise(r => setTimeout(r, 500));
     }
 
     const captureResponse = await fetch('/opencv-camera/capture', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-<<<<<<< Updated upstream
       body: JSON.stringify({
         task_id: fullTaskId,
         uid: uid
       })
-=======
-      body: JSON.stringify({ task_id: fullTaskId, uid: uid })
->>>>>>> Stashed changes
     });
     if (!captureResponse.ok) throw new Error('拍照失敗');
     return await captureResponse.json();
@@ -439,7 +424,6 @@ async function takeShot() {
       // === 需要拍兩張（side + top）的任務 ===
       await countdown(waittime);
 
-<<<<<<< Updated upstream
       // 1. 拍側面（預覽時已開著 side 相機，直接拍）
       updateStatus('正在拍攝側面鏡頭...', 'loading');
       await captureWithCamera(getCameraIndex("side"), `${id}-side`, currentUid, true);
@@ -452,17 +436,6 @@ async function takeShot() {
       await closeCamera();
 
       // 3. 呼叫後端分析（背景執行）
-=======
-      // 1. 直接對已開著的 side 相機拍（不關不開，保留倒數結束當下的畫面）
-      updateStatus('正在拍攝側面鏡頭...', 'loading');
-      await captureWithCamera(getCameraIndex("side"), `${id}-side`, currentUid, true);
-
-      // 2. 切換到 top 相機（需要 start + 500ms 暖機）
-      updateStatus('側面完成，切換上方鏡頭...', 'loading');
-      await captureWithCamera(getCameraIndex("top"), `${id}-top`, currentUid, false);
-
-      // 3. 兩張都確實拍完，才觸發分析
->>>>>>> Stashed changes
       updateStatus('正在分析並寫入資料庫...', 'loading');
       await triggerBackgroundAnalysis(id, currentUid);
 
@@ -476,7 +449,6 @@ async function takeShot() {
       // === 一般單張照片任務 ===
       await countdown(waittime);
 
-<<<<<<< Updated upstream
       // 1. 拍上方（預覽時已開著 top 相機，直接拍）
       updateStatus('正在拍照（上方鏡頭）...', 'loading');
       await captureWithCamera(getCameraIndex("top"), id, currentUid, true);
@@ -489,18 +461,6 @@ async function takeShot() {
       await triggerBackgroundAnalysis(id, currentUid);
 
       // 3. 完成後才跳轉
-=======
-      // 1. 直接對已開著的 top 相機拍（不關不開）
-      updateStatus('正在拍照（上方鏡頭）...', 'loading');
-      await captureWithCamera(getCameraIndex("top"), id, currentUid, true);
-
-      // 2. 拍完才觸發分析
-      updateStatus('正在分析並寫入資料庫...', 'loading');
-      await triggerBackgroundAnalysis(id, currentUid);
-
-      // 3. 全部完成才關相機，再跳轉
-      await closeCamera();
->>>>>>> Stashed changes
       updateStatus('存檔完成！準備進下一關...', 'success');
       await new Promise(r => setTimeout(r, 800));
       goNext();
