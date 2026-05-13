@@ -5,16 +5,14 @@
 
   // === 驗證登入 ===
   async function ensureAuth() {
-    const r = await fetch('/api/auth/whoami');
+    const r = await fetch('/api/auth/whoami', { credentials: 'include' });
     const js = await r.json();
     if (!js.ok || !js.logged_in) {
-      alert('尚未登入');
-      location.href = '/html/login.html';
+      location.href = '/html/admin_login.html';
       return false;
     }
     userLevel = Number(js.user.level || 0);
     if (userLevel < 3) {
-      alert('⚠️ 只有主管可以進入此頁面');
       location.href = '/html/admin.html';
       return false;
     }
@@ -23,7 +21,7 @@
 
   // === 抓清單 ===
   async function loadAdmins() {
-    const res = await fetch('/api/admin/list');
+    const res = await fetch('/api/admin/list', { credentials: 'include' });
     const js = await res.json();
     if (!js.ok) {
       $tbody.innerHTML = `<tr><td colspan="4">讀取失敗：${js.msg}</td></tr>`;
@@ -66,7 +64,8 @@
       const res = await fetch('/api/admin/add', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ account, password, email })
+        body: JSON.stringify({ account, password, email }),
+        credentials: 'include',
       });
       const js = await res.json();
       alert(js.ok ? '✅ 新增成功' : `❌ 失敗：${js.msg}`);
@@ -83,7 +82,8 @@
       const res = await fetch(`/api/admin/update/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ account: newAccount, email: newEmail, password: newPassword })
+        body: JSON.stringify({ account: newAccount, email: newEmail, password: newPassword }),
+        credentials: 'include',
       });
       const js = await res.json();
       alert(js.ok ? '✅ 修改成功' : `❌ 失敗：${js.msg}`);
@@ -94,7 +94,7 @@
     // 刪除
     if (btn.dataset.action === 'del') {
       if (!confirm(`確定要刪除帳號「${id}」嗎？`)) return;
-      const res = await fetch(`/api/admin/delete/${id}`, { method: 'DELETE' });
+      const res = await fetch(`/api/admin/delete/${id}`, { method: 'DELETE', credentials: 'include' });
       const js = await res.json();
       alert(js.ok ? '🗑️ 已刪除' : `❌ 失敗：${js.msg}`);
       await loadAdmins();
@@ -106,6 +106,17 @@
     const btn = e.target.closest('[data-action]');
     if (!btn) return;
     if (btn.dataset.action === 'reload') await loadAdmins();
+  });
+
+  // === 頂部按鈕 ===
+  document.getElementById('btn-back')?.addEventListener('click', () => {
+    location.href = '/html/admin.html';
+  });
+  document.getElementById('btn-logout')?.addEventListener('click', async () => {
+    if (confirm('確定要登出系統嗎？')) {
+      await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
+      location.href = '/html/admin_login.html';
+    }
   });
 
   // === 初始化 ===

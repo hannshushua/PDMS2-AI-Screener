@@ -29,6 +29,32 @@
       if (addBtn) addBtn.style.display = 'none';
       const changePwdBtn = document.getElementById('btn-change-pwd');
       if (changePwdBtn) changePwdBtn.style.display = '';
+
+      // 家長身分：在 header 加「回到總覽」按鈕
+      const userInfoDiv = document.querySelector('.user-info');
+      if (userInfoDiv) {
+        const backBtn = document.createElement('button');
+        backBtn.className = 'text-link';
+        backBtn.textContent = '← 回到總覽';
+        backBtn.addEventListener('click', () => {
+          location.href = '/html/parent_dashboard.html';
+        });
+        userInfoDiv.prepend(backBtn);
+      }
+    }
+
+    if (userLevel >= 3) {
+      // 主管身分：在 header 加「帳號管理」按鈕
+      const userInfoDiv = document.querySelector('.user-info');
+      if (userInfoDiv) {
+        const mgmtBtn = document.createElement('button');
+        mgmtBtn.className = 'text-link';
+        mgmtBtn.textContent = '帳號管理';
+        mgmtBtn.addEventListener('click', () => {
+          location.href = '/html/superadmin.html';
+        });
+        userInfoDiv.prepend(mgmtBtn);
+      }
     }
     return true;
   }

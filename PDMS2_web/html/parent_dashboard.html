@@ -1,0 +1,739 @@
+<!doctype html>
+<html lang="zh-Hant">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>發展報告 | 兒童發展測驗平台</title>
+  <link rel="stylesheet" href="../css/admin.css">
+  <style>
+    .dash-wrap {
+      max-width: 1100px;
+      margin: 36px auto;
+      padding: 0 clamp(16px, 4vw, 40px);
+    }
+
+    /* 歡迎區 */
+    .welcome-block {
+      text-align: center;
+      margin-bottom: 28px;
+    }
+    .welcome-block h1 {
+      font-size: clamp(24px, 3vw, 38px);
+      font-weight: 700;
+      color: var(--text-main);
+      margin-bottom: 8px;
+    }
+    .welcome-block h1 .child-name { color: var(--primary); }
+    .welcome-block p {
+      color: var(--text-muted);
+      font-size: clamp(15px, 1.7vw, 20px);
+      margin: 0;
+    }
+
+    /* ── 總分卡片 ── */
+    .summary-card {
+      background: linear-gradient(135deg, #FFF6E6 0%, #FFF9F2 100%);
+      border: 3px solid #FFD9A8;
+      border-radius: 24px;
+      padding: clamp(24px, 3vw, 40px) clamp(24px, 4vw, 48px);
+      margin-bottom: 28px;
+      display: flex;
+      align-items: center;
+      gap: clamp(20px, 3vw, 48px);
+      flex-wrap: wrap;
+    }
+    .summary-score-circle {
+      width: clamp(100px, 12vw, 130px);
+      height: clamp(100px, 12vw, 130px);
+      border-radius: 50%;
+      background: var(--primary);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 6px 0 #E27D22;
+      flex-shrink: 0;
+    }
+    .summary-score-circle .big-num {
+      font-size: clamp(28px, 3.5vw, 44px);
+      font-weight: 700;
+      color: #fff;
+      line-height: 1;
+    }
+    .summary-score-circle .small-label {
+      font-size: clamp(12px, 1.2vw, 15px);
+      color: rgba(255,255,255,0.85);
+      font-weight: 500;
+      margin-top: 4px;
+    }
+    .summary-text { flex: 1; min-width: 200px; }
+    .summary-text .verdict {
+      font-size: clamp(20px, 2.2vw, 28px);
+      font-weight: 700;
+      color: var(--text-main);
+      margin-bottom: 8px;
+    }
+    .summary-text .verdict-sub {
+      font-size: clamp(14px, 1.5vw, 18px);
+      color: var(--text-muted);
+      line-height: 1.7;
+    }
+    .summary-meta {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+    .summary-meta .meta-item {
+      font-size: clamp(13px, 1.3vw, 16px);
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+    .summary-meta .meta-item span {
+      color: var(--text-main);
+      font-weight: 700;
+    }
+    @media (max-width: 600px) {
+      .summary-meta { align-items: flex-start; }
+    }
+
+    /* ── 兩欄 ── */
+    .two-col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+      margin-bottom: 24px;
+    }
+    @media (max-width: 800px) {
+      .two-col { grid-template-columns: 1fr; }
+    }
+
+    /* 雷達圖 */
+    .radar-wrap {
+      position: relative;
+      height: clamp(280px, 40vw, 420px);
+    }
+
+    /* 關卡概覽列 */
+    .ch-row {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      flex: 1;
+    }
+    .ch-dot {
+      width: 13px;
+      height: 13px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .ch-label {
+      font-weight: 700;
+      font-size: clamp(14px, 1.5vw, 18px);
+      min-width: 100px;
+    }
+    .ch-bar-wrap {
+      flex: 1;
+      height: 12px;
+      background: var(--border-color);
+      border-radius: 6px;
+      overflow: hidden;
+    }
+    .ch-bar {
+      height: 100%;
+      border-radius: 6px;
+      transition: width 1.1s cubic-bezier(.25,.8,.25,1);
+    }
+    .ch-pct {
+      font-weight: 700;
+      font-size: clamp(15px, 1.6vw, 19px);
+      min-width: 50px;
+      text-align: right;
+    }
+    .ch-done {
+      font-size: clamp(12px, 1.2vw, 15px);
+      color: var(--text-muted);
+      min-width: 56px;
+      text-align: right;
+    }
+
+    /* ── 分數說明圖例 ── */
+    .score-legend {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 20px;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 16px;
+      border-radius: 14px;
+      font-size: clamp(13px, 1.4vw, 16px);
+      font-weight: 600;
+      border: 2px solid transparent;
+    }
+    .legend-item.l2 { background: #E7F8F4; color: #0D9E85; border-color: #B2EDDE; }
+    .legend-item.l1 { background: #FFF3D6; color: #B87800; border-color: #FFE0A0; }
+    .legend-item.l0 { background: #FFEEF2; color: #D04060; border-color: #FFCAD4; }
+    .legend-item.lna { background: #F5F5F5; color: #AAAAAA; border-color: #E0E0E0; }
+    .legend-dot {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 800;
+      background: rgba(0,0,0,0.08);
+    }
+
+    /* 任務 pills */
+    .task-section { margin-bottom: 28px; }
+    .task-section-title {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+    .task-section-title .dot {
+      width: 11px;
+      height: 11px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .task-section-title span {
+      font-weight: 700;
+      font-size: clamp(16px, 1.8vw, 21px);
+    }
+    .pill-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 9px 18px;
+      border-radius: 22px;
+      font-size: clamp(14px, 1.5vw, 18px);
+      font-weight: 700;
+    }
+    .pill.s2 { background: #E7F8F4; color: #0D9E85; }
+    .pill.s1 { background: #FFF3D6; color: #B87800; }
+    .pill.s0 { background: #FFEEF2; color: #D04060; }
+    .pill.sna { background: #F2F2F2; color: #AAAAAA; }
+    .pill .score-num {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: rgba(0,0,0,0.08);
+      font-size: 13px;
+    }
+
+    /* 底部按鈕 */
+    .detail-btn {
+      display: block;
+      padding: 18px;
+      background: var(--primary);
+      color: #fff;
+      border: none;
+      border-radius: 16px;
+      font-size: clamp(16px, 1.8vw, 20px);
+      font-weight: 700;
+      cursor: pointer;
+      text-align: center;
+      text-decoration: none;
+      box-shadow: 0 4px 0 #E27D22;
+      font-family: inherit;
+      transition: all 0.2s;
+      margin-bottom: 48px;
+    }
+    .detail-btn:hover { background: var(--primary-hover); }
+    .detail-btn:active { transform: translateY(4px); box-shadow: none; }
+
+    .loading-msg {
+      text-align: center;
+      color: var(--text-muted);
+      padding: 80px 40px;
+      font-size: 18px;
+    }
+    .last-test-date {
+      font-size: clamp(13px, 1.3vw, 15px);
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    /* ⓘ tooltip */
+    .info-icon {
+      font-size: 15px;
+      color: #C4A98A;
+      cursor: default;
+      position: relative;
+      flex-shrink: 0;
+      line-height: 1;
+    }
+    .info-icon:hover { color: var(--primary); }
+    .info-tooltip {
+      display: none;
+      position: fixed;
+      background: #3D2F2F;
+      color: #FFF;
+      font-size: 16px;
+      font-weight: 500;
+      line-height: 1.7;
+      padding: 14px 18px;
+      border-radius: 12px;
+      max-width: 340px;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.25);
+      z-index: 999;
+      pointer-events: none;
+    }
+    .info-tooltip.show { display: block; }
+  </style>
+</head>
+
+<body>
+  <div class="header">
+    <div class="brand">兒童發展測驗平台</div>
+    <div class="user-info">
+      <span id="user-info-text">讀取中...</span>
+      <button class="text-link" id="btn-change-pwd">修改密碼</button>
+      <button class="text-link" id="btn-logout">登出系統</button>
+    </div>
+  </div>
+
+  <div class="dash-wrap">
+    <div class="welcome-block">
+      <h1>你好，<span class="child-name" id="child-name">...</span> 的家長</h1>
+      <p>以下是孩子最新一次精細動作發展測驗結果</p>
+    </div>
+
+    <div id="loading-msg" class="loading-msg">資料載入中，請稍候...</div>
+
+    <div id="dashboard" style="display:none;">
+
+      <!-- 總分卡片 -->
+      <div class="summary-card">
+        <div class="summary-score-circle">
+          <div class="big-num" id="overall-pct">—</div>
+          <div class="small-label">整體表現</div>
+        </div>
+        <div class="summary-text">
+          <div class="verdict" id="verdict-title">評估中...</div>
+          <div class="verdict-sub" id="verdict-sub"></div>
+        </div>
+        <div class="summary-meta">
+          <div class="meta-item">完成題數：<span id="meta-done">—</span></div>
+          <div class="meta-item">測驗總題：<span>17 題</span></div>
+          <div class="meta-item" id="meta-date-wrap" style="display:none;">最後測驗：<span id="meta-date">—</span></div>
+        </div>
+      </div>
+
+      <div class="two-col">
+        <!-- 雷達圖 -->
+        <div class="card">
+          <div class="card-header">
+            能力分布雷達圖
+            <span class="last-test-date" id="last-test-date"></span>
+          </div>
+          <div style="padding: 24px 28px;">
+            <div class="radar-wrap">
+              <canvas id="radar-chart"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <!-- 各關卡得分概覽 -->
+        <div class="card" style="display:flex; flex-direction:column;">
+          <div class="card-header">各關卡得分概覽</div>
+          <div style="padding: 20px 28px; flex:1; display:flex; flex-direction:column;">
+            <div id="chapter-rows" style="display:flex; flex-direction:column; justify-content:space-evenly; flex:1; gap:18px;"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 各任務詳細結果 -->
+      <div class="card">
+        <div class="card-header">各任務詳細結果</div>
+        <div style="padding: 24px 32px;">
+
+          <!-- 分數圖例 -->
+          <div class="score-legend">
+            <div class="legend-item l2">
+              <div class="legend-dot">2</div>
+              達到標準（完全符合評分要求）
+            </div>
+            <div class="legend-item l1">
+              <div class="legend-dot">1</div>
+              部分達標（有進步空間）
+            </div>
+            <div class="legend-item l0">
+              <div class="legend-dot">0</div>
+              尚未達標（需要多加練習）
+            </div>
+            <div class="legend-item lna">
+              <div class="legend-dot">—</div>
+              尚未進行此項測驗
+            </div>
+          </div>
+
+          <div id="task-detail"></div>
+        </div>
+      </div>
+
+      <a href="/html/admin.html" class="detail-btn">查看完整測驗紀錄明細</a>
+    </div>
+  </div>
+
+  <!-- 修改密碼 dialog -->
+  <dialog id="change-pwd-dialog">
+    <div class="dialog-header">修改登入密碼</div>
+    <div class="dialog-body">
+      <div class="form-group">
+        <label>舊密碼</label>
+        <input type="password" id="cp-old-pwd" placeholder="輸入目前密碼" autocomplete="current-password">
+      </div>
+      <div class="form-group">
+        <label>新密碼</label>
+        <div style="position:relative;">
+          <input type="password" id="cp-new-pwd" placeholder="輸入新密碼" autocomplete="new-password" style="padding-right:48px;">
+          <button type="button" id="cp-toggle-pwd" style="position:absolute;right:14px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:18px;color:#C4A98A;padding:0;width:auto;box-shadow:none;">&#128065;</button>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>確認新密碼</label>
+        <input type="password" id="cp-confirm-pwd" placeholder="再輸入一次新密碼" autocomplete="new-password">
+      </div>
+      <div id="cp-msg" style="font-size:14px;min-height:20px;text-align:center;"></div>
+    </div>
+    <div class="dialog-footer">
+      <button class="btn" onclick="document.getElementById('change-pwd-dialog').close()">取消</button>
+      <button class="btn primary" id="cp-save">確認修改</button>
+    </div>
+  </dialog>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script>
+  (function () {
+    const CHAPTERS = [
+      {
+        id: 'Ch1',
+        name: '視覺動作整合',
+        fullName: '視覺動作整合（空間定位）',
+        desc: 'PDMS-2 視覺動作整合子測驗核心項目，評估孩子在視覺引導下精確控制手部力量與空間定位的能力',
+        color: '#FF9F43',
+        tasks: ['Ch1-t1', 'Ch1-t2', 'Ch1-t3', 'Ch1-t4'],
+      },
+      {
+        id: 'Ch2',
+        name: '書寫動作控制',
+        fullName: '精細書寫動作控制（圖形模仿）',
+        desc: 'PDMS-2 視覺動作整合子測驗，評估孩子依視覺範本模仿形狀、控制筆壓與運筆穩定性的能力',
+        color: '#4ECBA8',
+        tasks: ['Ch2-t1', 'Ch2-t2', 'Ch2-t3', 'Ch2-t4', 'Ch2-t5', 'Ch2-t6'],
+      },
+      {
+        id: 'Ch3',
+        name: '雙手協調與工具操作',
+        fullName: '雙手協調與工具操作（剪刀使用）',
+        desc: 'PDMS-2 視覺動作整合子測驗，評估孩子雙手分工、沿線剪裁與手指力量控制的協調能力',
+        color: '#64B5F6',
+        tasks: ['Ch3-t1', 'Ch3-t2', 'Ch3-t3', 'Ch3-t4'],
+      },
+      {
+        id: 'Ch4',
+        name: '雙手協調與動作序列',
+        fullName: '雙手協調與動作序列（多步驟執行）',
+        desc: 'PDMS-2 視覺動作整合子測驗，評估孩子雙手對稱操作、依序執行多步驟精細動作的能力',
+        color: '#CE93D8',
+        tasks: ['Ch4-t1', 'Ch4-t2'],
+      },
+      {
+        id: 'Ch5',
+        name: '指尖抓握靈巧度',
+        fullName: '指尖抓握靈巧度（Grasping）',
+        desc: 'PDMS-2 抓握子測驗核心項目，評估孩子以指尖精確夾取細小物件與手內操作的靈巧程度',
+        color: '#EF9A9A',
+        tasks: ['Ch5-t1'],
+      },
+    ];
+
+    const TASK_NAMES = {
+      'Ch1-t1': '串線穿積木', 'Ch1-t2': '疊積木塔',
+      'Ch1-t3': '積木階梯',   'Ch1-t4': '積木圍牆',
+      'Ch2-t1': '畫圓形',     'Ch2-t2': '畫方形',
+      'Ch2-t3': '畫十字',     'Ch2-t4': '畫直線',
+      'Ch2-t5': '塗顏色',     'Ch2-t6': '連接點',
+      'Ch3-t1': '剪圓形',     'Ch3-t2': '剪方形',
+      'Ch3-t3': '剪紙條',     'Ch3-t4': '剪直線',
+      'Ch4-t1': '單次對摺',   'Ch4-t2': '二次對摺',
+      'Ch5-t1': '裝豆豆',
+    };
+
+    // 根據整體百分比給出評語
+    function getVerdict(pct, doneTasks, totalTasks) {
+      if (doneTasks === 0) {
+        return {
+          title: '尚未開始任何測驗',
+          sub: '目前還沒有測驗紀錄，請聯絡醫療人員安排測驗時間。',
+        };
+      }
+      if (doneTasks < totalTasks) {
+        if (pct >= 80) return { title: '已完成的項目表現優秀', sub: `已完成 ${doneTasks} / ${totalTasks} 項，繼續完成剩餘測驗，可以得到更完整的評估結果。` };
+        if (pct >= 50) return { title: '整體表現良好，持續加油', sub: `已完成 ${doneTasks} / ${totalTasks} 項，部分能力有進步空間，建議搭配日常練習活動。` };
+        return { title: '需要多加練習與關注', sub: `已完成 ${doneTasks} / ${totalTasks} 項，建議與醫療人員討論後續練習計畫。` };
+      }
+      if (pct >= 80) return { title: '精細動作發展表現優秀！', sub: '孩子在各項精細動作評估中表現良好，請繼續保持日常練習，維持良好的發展狀態。' };
+      if (pct >= 60) return { title: '整體表現良好，持續進步中', sub: '大部分項目已達標準，少數項目仍有進步空間，建議多安排手部活動，例如黏土、積木等遊戲。' };
+      if (pct >= 40) return { title: '部分項目需要加強練習', sub: '有些精細動作技能尚在發展中，建議與醫療人員討論，針對需要加強的項目安排練習活動。' };
+      return { title: '建議尋求專業評估與協助', sub: '多項精細動作測驗尚未達標準，建議盡快與醫療人員聯絡，討論後續的評估與介入計畫。' };
+    }
+
+    async function init() {
+      let user;
+      try {
+        const r = await fetch('/api/auth/whoami', { credentials: 'include' });
+        const js = await r.json();
+        if (!js.logged_in) { location.href = '/html/admin_login.html'; return; }
+        if (Number(js.user.level) >= 2) { location.href = '/html/admin.html'; return; }
+        user = js.user;
+      } catch (e) {
+        location.href = '/html/admin_login.html'; return;
+      }
+
+      document.getElementById('user-info-text').textContent = `帳號：${user.account}`;
+
+      let scores = [];
+      try {
+        const r = await fetch('/scores', { credentials: 'include' });
+        scores = (await r.json()) || [];
+      } catch (e) { scores = []; }
+
+      // 每個 task 取最新一筆
+      const latestMap = new Map();
+      scores.forEach(r => {
+        const key = r.task_id;
+        const ts = (r.test_date || '') + '|' + (r.time || '');
+        const cur = latestMap.get(key);
+        if (!cur || ts > (cur.test_date || '') + '|' + (cur.time || '')) latestMap.set(key, r);
+      });
+
+      // 小朋友姓名
+      const firstName = (scores[0] && scores[0].name) || user.account;
+      document.getElementById('child-name').textContent = firstName;
+
+      // 最後測驗日期
+      const dates = [...latestMap.values()].map(r => r.test_date).filter(Boolean);
+      if (dates.length) {
+        const latest = dates.sort().reverse()[0];
+        document.getElementById('last-test-date').textContent = `最後測驗：${latest}`;
+        document.getElementById('meta-date').textContent = latest;
+        document.getElementById('meta-date-wrap').style.display = '';
+      }
+
+      // 計算每個 chapter 統計
+      const totalTaskCount = CHAPTERS.reduce((s, ch) => s + ch.tasks.length, 0);
+      let globalValid = 0, globalScoreSum = 0;
+
+      const chapterData = CHAPTERS.map(ch => {
+        const taskScores = ch.tasks.map(tid => {
+          const rec = latestMap.get(tid);
+          const s = rec ? rec.score : null;
+          const valid = (s !== null && s !== undefined && s !== -1);
+          if (valid) { globalValid++; globalScoreSum += s; }
+          return { task_id: tid, score: valid ? s : null };
+        });
+        const validList = taskScores.filter(t => t.score !== null);
+        const avg = validList.length > 0 ? validList.reduce((a, t) => a + t.score, 0) / validList.length : null;
+        const pct = avg !== null ? Math.round((avg / 2) * 100) : 0;
+        return { ...ch, taskScores, avg, pct, completed: validList.length };
+      });
+
+      // 總分卡片
+      const overallPct = globalValid > 0 ? Math.round((globalScoreSum / (globalValid * 2)) * 100) : 0;
+      document.getElementById('overall-pct').textContent = globalValid > 0 ? `${overallPct}%` : '—';
+      document.getElementById('meta-done').textContent = `${globalValid} / ${totalTaskCount}`;
+      const { title, sub } = getVerdict(overallPct, globalValid, totalTaskCount);
+      document.getElementById('verdict-title').textContent = title;
+      document.getElementById('verdict-sub').textContent = sub;
+
+      renderRadar(chapterData);
+      renderChapterRows(chapterData);
+      renderTaskDetail(chapterData);
+
+      document.getElementById('loading-msg').style.display = 'none';
+      document.getElementById('dashboard').style.display = '';
+    }
+
+    function renderRadar(data) {
+      new Chart(document.getElementById('radar-chart'), {
+        type: 'radar',
+        data: {
+          labels: data.map(ch => ch.name),
+          datasets: [{
+            label: '能力指數',
+            data: data.map(ch => ch.pct),
+            backgroundColor: 'rgba(255, 159, 67, 0.15)',
+            borderColor: '#FF9F43',
+            borderWidth: 2.5,
+            pointBackgroundColor: data.map(ch => ch.color),
+            pointBorderColor: '#fff',
+            pointBorderWidth: 2,
+            pointRadius: 7,
+            pointHoverRadius: 10,
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            r: {
+              min: 0, max: 100,
+              ticks: { stepSize: 25, callback: v => `${v}%`, font: { size: 13 }, backdropColor: 'transparent' },
+              grid: { color: '#F0E6D2' },
+              angleLines: { color: '#F0E6D2' },
+              pointLabels: { font: { size: 15, weight: '700', family: 'Noto Sans TC' }, color: '#5C4E4E' },
+            }
+          },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: ctx => {
+                  const ch = data[ctx.dataIndex];
+                  if (ch.avg === null) return '尚未完成任何測驗';
+                  return `能力指數：${ctx.raw}%（平均 ${ch.avg.toFixed(1)} 分）`;
+                }
+              }
+            }
+          }
+        }
+      });
+    }
+
+    function renderChapterRows(data) {
+      document.getElementById('chapter-rows').innerHTML = data.map(ch => {
+        const pctText = ch.avg !== null ? `${ch.pct}%` : '—';
+        return `
+          <div class="ch-row">
+            <div class="ch-dot" style="background:${ch.color};"></div>
+            <div style="flex:1; min-width:0;">
+              <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
+                <span style="font-weight:700; font-size:clamp(14px,1.5vw,18px); color:var(--text-main);">${ch.fullName}</span>
+                <span class="info-icon" data-desc="${ch.desc}">ⓘ</span>
+              </div>
+              <div class="ch-bar-wrap">
+                <div class="ch-bar" style="width:${ch.pct}%; background:${ch.color};"></div>
+              </div>
+            </div>
+            <div style="text-align:right; flex-shrink:0; margin-left:12px;">
+              <div class="ch-pct" style="color:${ch.color};">${pctText}</div>
+              <div class="ch-done">${ch.completed}/${ch.tasks.length} 題</div>
+            </div>
+          </div>`;
+      }).join('');
+    }
+
+    function renderTaskDetail(data) {
+      document.getElementById('task-detail').innerHTML = data.map(ch => {
+        const pills = ch.taskScores.map(t => {
+          const name = TASK_NAMES[t.task_id] || t.task_id;
+          if (t.score === null)
+            return `<span class="pill sna">${name} <span class="score-num">—</span></span>`;
+          const cls = t.score === 2 ? 's2' : t.score === 1 ? 's1' : 's0';
+          return `<span class="pill ${cls}">${name} <span class="score-num">${t.score}</span></span>`;
+        }).join('');
+        return `
+          <div class="task-section">
+            <div class="task-section-title">
+              <div class="dot" style="background:${ch.color};"></div>
+              <span>${ch.id}　${ch.fullName}</span>
+            </div>
+            <div class="pill-row">${pills}</div>
+          </div>`;
+      }).join('');
+    }
+
+    // ⓘ tooltip
+    const tooltip = document.createElement('div');
+    tooltip.className = 'info-tooltip';
+    document.body.appendChild(tooltip);
+    document.addEventListener('mouseover', e => {
+      const icon = e.target.closest('.info-icon');
+      if (!icon) return;
+      tooltip.textContent = icon.dataset.desc;
+      tooltip.classList.add('show');
+    });
+    document.addEventListener('mousemove', e => {
+      if (!tooltip.classList.contains('show')) return;
+      tooltip.style.left = Math.min(e.clientX + 14, window.innerWidth - tooltip.offsetWidth - 8) + 'px';
+      tooltip.style.top = (e.clientY + 14) + 'px';
+    });
+    document.addEventListener('mouseout', e => {
+      if (e.target.closest('.info-icon')) tooltip.classList.remove('show');
+    });
+
+    // 修改密碼
+    document.getElementById('btn-change-pwd').addEventListener('click', () => {
+      document.getElementById('cp-old-pwd').value = '';
+      document.getElementById('cp-new-pwd').value = '';
+      document.getElementById('cp-confirm-pwd').value = '';
+      document.getElementById('cp-msg').textContent = '';
+      document.getElementById('change-pwd-dialog').showModal();
+    });
+    document.getElementById('cp-toggle-pwd').addEventListener('click', () => {
+      const input = document.getElementById('cp-new-pwd');
+      const btn = document.getElementById('cp-toggle-pwd');
+      const hidden = input.type === 'password';
+      input.type = hidden ? 'text' : 'password';
+      btn.innerHTML = hidden ? '&#128064;' : '&#128065;';
+    });
+    document.getElementById('cp-save').addEventListener('click', async () => {
+      const old_password = document.getElementById('cp-old-pwd').value.trim();
+      const new_password = document.getElementById('cp-new-pwd').value.trim();
+      const confirm_password = document.getElementById('cp-confirm-pwd').value.trim();
+      const msgEl = document.getElementById('cp-msg');
+      if (!old_password || !new_password || !confirm_password) {
+        msgEl.style.color = '#E57373'; msgEl.textContent = '所有欄位不可為空'; return;
+      }
+      if (new_password !== confirm_password) {
+        msgEl.style.color = '#E57373'; msgEl.textContent = '兩次輸入的新密碼不一致'; return;
+      }
+      const res = await fetch('/api/auth/update_profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ old_password, new_password }),
+        credentials: 'include',
+      });
+      const js = await res.json();
+      if (js.ok) {
+        msgEl.style.color = '#81C784'; msgEl.textContent = js.msg;
+        setTimeout(() => { location.href = '/html/admin_login.html'; }, 1200);
+      } else {
+        msgEl.style.color = '#E57373'; msgEl.textContent = js.msg || '修改失敗';
+      }
+    });
+
+    // 登出
+    document.getElementById('btn-logout').addEventListener('click', async () => {
+      if (confirm('確定要登出系統嗎？')) {
+        await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
+        location.href = '/html/admin_login.html';
+      }
+    });
+
+    init();
+  })();
+  </script>
+</body>
+
+</html>
