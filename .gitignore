@@ -59,6 +59,7 @@ __pycache__/
 # Claude AI 設定
 CLAUDE.md
 .claude
+AGENTS.md
 
 # 舊版本與暫存資料庫
 old_version/
@@ -69,7 +70,3 @@ testPDMS.sql
 #sam
 sam/
 
-# AI 模型檔（大型二進位，不進 git）
-*.pth
-*.pt
-*.ckpt
