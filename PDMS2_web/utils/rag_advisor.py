@@ -225,14 +225,17 @@ class PDMS2Advisor:
             conn.close()
         return performance
 
-    def generate_advice(self, uid: str, force: bool = False) -> str:
+    def generate_advice(self, uid: str, age_months: int = None, force: bool = False) -> str:
         if not self._initialized:
             self.initialize()
 
         if not self._initialized:
             return "AI 顧問尚未初始化（可能缺少 API Key），請聯絡系統管理員。"
 
-        # 1. 取得兒童表現
+        # 1. 取得年齡與表現
+        if age_months is None:
+            age_months = self._get_age_months(uid)
+            
         perf = self.get_child_performance(uid)
         if not perf:
             return "找不到該兒童的施測紀錄。"
@@ -260,39 +263,42 @@ class PDMS2Advisor:
             finally:
                 conn.close()
 
-        # 2. 篩選弱項 (分數 0 或 1)
+        # 2. 篩選弱項
         weaknesses = [p for p in perf if p['score'] < 2]
         if not weaknesses:
             return "該兒童表現優異，所有項目皆達標！建議繼續保持多元的活動練習。"
 
         # 3. 檢索相關知識
         context_parts = []
+        age_filter = f"{age_months} months" if age_months else ""
         for w in weaknesses:
-            # 搜尋相關的 PDMS2 項目描述
-            query = f"PDMS2 {w['task_name']} {w['task_id']}"
+            query = f"PDMS2 {w['task_id']} {w['task_name']} {age_filter}"
             results = self.vector_store.similarity_search(query, k=2)
             for res in results:
                 context_parts.append(res.page_content)
 
         context = "\n---\n".join(set(context_parts))
         weaknesses_str = "\n".join([f"- {w['task_name']} (ID: {w['task_id']}): 得分 {w['score']}" for w in weaknesses])
+        age_info = f"兒童年齡：{age_months} 個月" if age_months else "年齡資訊：未提供"
 
         # 4. 產生 Prompt 並呼叫 LLM
         prompt = f"""
-你是一位專業的兒童發展專家（職能治療師）。請針對以下評估結果提供家長建議。
+你是一位專業的兒童發展專家（職能治療師）。請針對以下評估結果提供整合性的家長建議。
 
-### 兒童表現與背景資訊：
-{context}
-
-### 待加強項目（得分未達精熟）：
+### 兒童資訊：
+- {age_info}
+- 待加強項目（得分未達精熟）：
 {weaknesses_str}
 
-### 寫作指南：
-1. **整合性總結**：不要分開列出每個項目，請將相似的弱項歸類，給出一個整體的發展現況總結。
-2. **精簡活動建議**：提供 3-4 個針對性的居家遊戲活動，需具備操作性、趣味性且生活化。
-3. **專業語氣**：溫和、鼓勵且具專業洞察。
-4. **禁止結尾推銷**：**絕對不要**在最後詢問是否要整理「居家練習表」或「打勾表」。
-5. **長度適中**：保持內容精煉，不要過於冗長。
+### 參考專業背景（PDMS-2 標準與研究）：
+{context}
+
+### 寫作指令：
+1. **整合性總結**：請勿條列式針對個別項目回答。請將相似的發展弱項（例如：積木與剪紙皆涉及手眼協調）歸類，給出一個整體的發展現況總結。
+2. **分齡活動建議**：請根據兒童的「月份年齡」提供 3-4 個精確且適齡的居家練習活動。
+3. **專業且溫暖**：語氣應具備職能治療師的專業感，同時對家長表達支持與鼓勵。
+4. **絕對禁止結尾贅句**：**禁止**在最後出現「如果您希望，我也可以幫您整理居家訓練表/打勾表」或類似的主動提議。
+5. **長度精煉**：避免冗長，重點放在如何在家幫助孩子。
 
 請直接開始撰寫建議內容：
 """

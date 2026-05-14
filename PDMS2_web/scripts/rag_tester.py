@@ -40,7 +40,7 @@ class RAGTester(PDMS2Advisor):
         """Override to skip database schema checks during testing"""
         pass
 
-    def generate_advice(self, uid: str, force: bool = True) -> dict:
+    def generate_advice(self, uid: str, age_months: int = None, force: bool = True) -> dict:
         """
         Modified generate_advice that returns more metadata for evaluation.
         """
@@ -56,9 +56,10 @@ class RAGTester(PDMS2Advisor):
         # Capture retrieval info
         retrieved_docs = []
         context_parts = []
+        age_filter = f"{age_months} months" if age_months else ""
         if weaknesses:
             for w in weaknesses:
-                query = f"PDMS2 {w['task_name']} {w['task_id']}"
+                query = f"PDMS2 {w['task_name']} {w['task_id']} {age_filter}"
                 results = self.vector_store.similarity_search(query, k=2)
                 for res in results:
                     retrieved_docs.append({
@@ -70,23 +71,29 @@ class RAGTester(PDMS2Advisor):
         
         context = "\n---\n".join(set(context_parts))
 
-        # 4. Generate Prompt
-        prompt = f"""
-你是一位專業的兒童發展專家與職能治療師。
-以下是一位兒童在 PDMS-2（皮巴迪發展運動量表）評估中的表現：
-UID: {uid}
-表現較弱的項目：
-{chr(10).join([f"- {w['task_name']} (ID: {w['task_id']}): 得分 {w['score']}" for w in weaknesses])}
+        # 3. Generate Prompt
+        weaknesses_str = "\n".join([f"- {w['task_name']} (ID: {w['task_id']}): 得分 {w['score']}" for w in weaknesses])
+        age_info = f"兒童年齡：{age_months} 個月" if age_months else "年齡資訊：未提供"
 
-背景知識參考：
+        prompt = f"""
+你是一位專業的兒童發展專家（職能治療師）。請針對以下評估結果提供整合性的家長建議。
+
+### 兒童資訊：
+- {age_info}
+- 待加強項目（得分未達精熟）：
+{weaknesses_str}
+
+### 參考專業背景（PDMS-2 標準與研究）：
 {context}
 
-請根據以上資訊，為家長撰寫一份專業且親切的建議。內容應包括：
-1. 簡單說明這些弱項代表的發展意義。
-2. 提供 3-4 個家長可以在家裡帶小朋友做的訓練活動（居家活動），要簡單、有趣且具備可執行性。
-3. 給予家長正向的鼓勵。
+### 寫作指令：
+1. **整合性總結**：請勿條列式針對個別項目回答。請將相似的發展弱項（例如：積木與剪紙皆涉及手眼協調）歸類，給出一個整體的發展現況總結。
+2. **分齡活動建議**：請根據兒童的「月份年齡」提供 3-4 個精確且適齡的居家練習活動。
+3. **專業且溫暖**：語氣應具備職能治療師的專業感，同時對家長表達支持與鼓勵。
+4. **絕對禁止結尾贅句**：**禁止**在最後出現「如果您希望，我也可以幫您整理居家訓練表/打勾表」或類似的主動提議。
+5. **長度精煉**：避免冗長，重點放在如何在家幫助孩子。
 
-請使用繁體中文撰寫，並使用 Markdown 格式（例如標題、列表）。
+請直接開始撰寫建議內容：
 """
         start_time = datetime.now()
         try:
@@ -154,6 +161,7 @@ def run_tests():
         {
             "uid": "test_fine_motor_stack",
             "desc": "Child struggles with stacking blocks (Ch1)",
+            "age_months": 36,
             "perf": [
                 {"task_id": "Ch1-t1", "task_name": "string_blocks", "score": 0},
                 {"task_id": "Ch1-t2", "task_name": "pyramid", "score": 1},
@@ -163,6 +171,7 @@ def run_tests():
         {
             "uid": "test_drawing",
             "desc": "Child struggles with drawing (Ch2)",
+            "age_months": 48,
             "perf": [
                 {"task_id": "Ch2-t1", "task_name": "draw_circle", "score": 1},
                 {"task_id": "Ch2-t2", "task_name": "draw_square", "score": 1},
@@ -172,6 +181,7 @@ def run_tests():
         {
             "uid": "test_cutting",
             "desc": "Child struggles with cutting (Ch3)",
+            "age_months": 60,
             "perf": [
                 {"task_id": "Ch3-t1", "task_name": "cut_circle", "score": 0},
                 {"task_id": "Ch3-t4", "task_name": "cut_line", "score": 2}
@@ -188,7 +198,7 @@ def run_tests():
         print(f"\nRunning test: {case['desc']} ({case['uid']})")
         tester.set_mock_performance(case['uid'], case['perf'])
         
-        result = tester.generate_advice(case['uid'])
+        result = tester.generate_advice(case['uid'], age_months=case['age_months'])
         if result["status"] == "success":
             eval_data = evaluate_response(result)
             result["evaluation"] = eval_data
