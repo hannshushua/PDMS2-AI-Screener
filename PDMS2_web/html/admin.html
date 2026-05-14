@@ -33,6 +33,7 @@
             <option value="">（請選擇測驗項目）</option>
           </select>
           <button class="btn" data-action="clear-filter">清除條件</button>
+          <button class="btn" id="btn-ai-advice" style="background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); color: white; border: none; display: none;">✨ AI 專家建議</button>
         </div>
         <div class="toolbar-sep"></div>
         <div class="toolbar-group">
@@ -147,7 +148,21 @@
     </div>
   </dialog>
 
+  <dialog id="ai-advice-dialog" style="width: 90%; max-width: 800px; padding: 0; border: none; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); overflow: hidden;">
+    <div class="dialog-header" style="background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); color: white; padding: 16px 24px; font-size: 20px; font-weight: 700; display: flex; justify-content: space-between; align-items: center; border-radius: 0;">
+      <span>✨ AI 專家居家訓練建議</span>
+      <button onclick="document.getElementById('ai-advice-dialog').close()" style="background: none; border: none; color: white; font-size: 24px; cursor: pointer;">✕</button>
+    </div>
+    <div class="dialog-body" id="ai-advice-content" style="padding: 24px; max-height: 70vh; overflow-y: auto; line-height: 1.8; color: #444; background: #fff;">
+      正在與 AI 專家連線中，請稍候...
+    </div>
+    <div class="dialog-footer" style="padding: 16px 24px; border-top: 1px solid #eee; text-align: right; background: #f9f9f9;">
+      <button class="btn" onclick="document.getElementById('ai-advice-dialog').close()">關閉</button>
+    </div>
+  </dialog>
+
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <script src="../js/admin.js"></script>
   <script>
     document.getElementById('btn-change-pwd').addEventListener('click', () => {

@@ -81,3 +81,11 @@ segmentation_models_pytorch
 segment-anything
 pyserial
 scikit-learn
+google-generativeai
+langchain
+langchain-community
+langchain-google-genai
+chromadb
+pypdf
+openai
+langchain-openai

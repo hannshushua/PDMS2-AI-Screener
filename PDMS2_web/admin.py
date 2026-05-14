@@ -16,6 +16,8 @@ import pymysql
 from urllib.parse import urlencode, urlparse
 import re
 
+from utils.rag_advisor import advisor
+
 print("====== CURRENT ADMIN SERVER IS RUNNING (PORT 8001) ======")
 
 ROOT = Path(__file__).parent.resolve()
@@ -132,6 +134,20 @@ IMAGE_SIGN_SECRET = _env.get("IMAGE_SIGN_SECRET", "")
 app = Flask(__name__)
 app.secret_key = secrets.token_hex(16)
 CORS(app, supports_credentials=True)
+
+
+# ── AI 顧問 API ──────────────────────────────────────────────────────────────
+@app.route("/api/ai_advice/<uid>")
+def api_get_ai_advice(uid):
+    """
+    取得該兒童的 AI 專家建議。
+    """
+    try:
+        advice = advisor.generate_advice(uid)
+        return jsonify({"ok": True, "advice": advice})
+    except Exception as e:
+        write_to_console(f"[AI] generate_advice failed: {e}", "ERROR")
+        return jsonify({"ok": False, "msg": str(e)}), 500
 
 
 def current_user() -> dict:

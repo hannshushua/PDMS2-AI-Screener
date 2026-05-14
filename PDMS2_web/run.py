@@ -27,6 +27,8 @@ from flask import Flask, send_from_directory, request, jsonify, session
 from flask_cors import CORS
 from werkzeug.exceptions import HTTPException
 
+from utils.rag_advisor import advisor
+
 ROOT = Path(__file__).parent.resolve()
 ENV_PATH = ROOT / ".env"
 CH3_T4_DIR = ROOT / "ch3-t4"
@@ -797,6 +799,19 @@ def setup_console_logging():
     lg.addHandler(fh)
     lg.propagate = False
     return lg
+
+# ── AI 顧問 API ──────────────────────────────────────────────────────────────
+@app.route("/api/ai_advice/<uid>")
+def api_get_ai_advice(uid):
+    """
+    取得該兒童的 AI 專家建議。
+    """
+    # 這裡可以加入權限檢查，例如 session.get("user")
+    try:
+        advice = advisor.generate_advice(uid)
+        return jsonify({"ok": True, "advice": advice})
+    except Exception as e:
+        return jsonify({"ok": False, "msg": str(e)}), 500
 
 
 def write_to_console(message, level="INFO"):

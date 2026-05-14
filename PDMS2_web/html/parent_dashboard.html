@@ -391,8 +391,29 @@
       </div>
 
       <a href="/html/admin.html" class="detail-btn">查看完整測驗紀錄明細</a>
+      
+      <button id="btn-ai-advice" class="detail-btn" style="background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); box-shadow: 0 4px 0 #4f46e5; margin-top: -24px;">
+        ✨ 獲取 AI 專家居家訓練建議
+      </button>
     </div>
   </div>
+
+  <dialog id="ai-advice-dialog" style="width: 90%; max-width: 800px; padding: 0; border: none; border-radius: 24px; box-shadow: 0 20px 50px rgba(0,0,0,0.2); overflow: hidden;">
+    <div style="background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); color: white; padding: 24px 32px; position: relative;">
+      <div style="font-size: 24px; font-weight: 800; margin-bottom: 4px;">✨ AI 專家建議</div>
+      <div style="font-size: 15px; opacity: 0.9;">基於孩子最新的評估表現，為您量身打造的訓練計畫</div>
+      <button onclick="document.getElementById('ai-advice-dialog').close()" style="position: absolute; right: 24px; top: 24px; background: rgba(255,255,255,0.2); border: none; color: white; width: 36px; height: 36px; border-radius: 50%; cursor: pointer; font-size: 20px; display: flex; align-items: center; justify-content: center;">✕</button>
+    </div>
+    <div id="ai-advice-content" style="padding: 32px; max-height: 60vh; overflow-y: auto; line-height: 1.8; color: #374151; font-size: 17px; background: #fff;">
+      <div style="text-align: center; padding: 40px;">
+        <div style="margin-bottom: 20px; font-size: 40px;">🤖</div>
+        <div>正在為您分析數據並生成建議，請稍候約 10-20 秒...</div>
+      </div>
+    </div>
+    <div style="padding: 20px 32px; background: #f9fafb; border-top: 1px solid #f3f4f6; text-align: right;">
+      <button class="btn primary" onclick="document.getElementById('ai-advice-dialog').close()" style="border-radius: 12px; padding: 12px 32px;">了解並關閉</button>
+    </div>
+  </dialog>
 
   <!-- 修改密碼 dialog -->
   <dialog id="change-pwd-dialog">
@@ -422,6 +443,8 @@
   </dialog>
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="../js/admin.js"></script>
   <script>
   (function () {
     const CHAPTERS = [
@@ -731,9 +754,39 @@
       }
     });
 
+    // AI 建議功能
+    const aiBtn = document.getElementById('btn-ai-advice');
+    const aiDialog = document.getElementById('ai-advice-dialog');
+    const aiContent = document.getElementById('ai-advice-content');
+
+    if (aiBtn) {
+      aiBtn.addEventListener('click', async () => {
+        aiDialog.showModal();
+        aiContent.innerHTML = `
+          <div style="text-align: center; padding: 40px;">
+            <div style="margin-bottom: 20px; font-size: 40px;">🤖</div>
+            <div>正在為您分析數據並生成建議，請稍候約 10-20 秒...</div>
+          </div>
+        `;
+        
+        try {
+          const r = await fetch(`/api/ai_advice/${user.account}`, { credentials: 'include' });
+          const js = await r.json();
+          if (js.ok) {
+            aiContent.innerHTML = `<div class="markdown-body">${marked.parse(js.advice)}</div>`;
+          } else {
+            aiContent.innerHTML = `<div style="color: #ef4444; text-align: center; padding: 40px;">❌ 產生建議失敗：${js.msg || '未知錯誤'}</div>`;
+          }
+        } catch (e) {
+          aiContent.innerHTML = `<div style="color: #ef4444; text-align: center; padding: 40px;">❌ 連線失敗，請檢查網路狀況。</div>`;
+        }
+      });
+    }
+
     init();
   })();
   </script>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 </body>
 
 </html>
