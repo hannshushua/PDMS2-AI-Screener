@@ -243,13 +243,30 @@ class PDMS2Advisor:
 1. **整合總結**：歸類相似弱項，給出整體發展總結。
 2. **居家建議**：提供 3-4 個針對性且有趣的居家活動。
 3. **專業語氣**：溫暖且專業。
-4. **禁止贅句**：禁止提議「整理表格」或「打勾表」。
+4. **【強制規定】**：你的回覆最後一句話，必須是關於給家長的支持或鼓勵，**絕對禁止**詢問「是否需要進一步協助」、「是否需要整理表格/計畫」等任何後續服務。寫完建議與鼓勵後請立刻停止。
 
 請開始撰寫：
 """
         try:
             response = self.model.invoke(prompt)
-            advice_text = response.content
+            advice_text = response.content.strip()
+            
+            # Post-processing: remove unwanted sentences
+            import re
+            # Match any sentence starting with these keywords until the end of the text
+            pattern = re.compile(r'(如果您|如您|若您|如果|若)(願意|希望|需要).*(整理|計畫|表格|衛教單|報告).*$', re.DOTALL)
+            advice_text = re.sub(pattern, '', advice_text).strip()
+            
+            # Also catch variations like "我也可以進一步..."
+            pattern2 = re.compile(r'(我也可以|我可以)(進一步|幫您).*(整理|計畫|表格|衛教單|報告).*$', re.DOTALL)
+            advice_text = re.sub(pattern2, '', advice_text).strip()
+
+            # Remove trailing empty lines
+            lines = advice_text.splitlines()
+            while lines and not lines[-1].strip():
+                lines.pop()
+
+            advice_text = '\n'.join(lines)
             # Save to history
             conn = self.get_db_connection()
             try:
