@@ -76,3 +76,6 @@ PDMS2_web/rag_db/
 # Sentence Transformers model cache (auto-downloaded, do not commit)
 PDMS2_web/model_cache/
 
+# RAG test reports (generated output, do not commit)
+PDMS2_web/scripts/rag_test_report*.md
+
