@@ -37,26 +37,40 @@ class PDMS2Advisor:
         if self._initialized:
             return
 
-        if not AI_API_KEY:
-            print("[RAG] Warning: AI_API_KEY not set.")
-            return
+        # Cleanup corrupted (0-byte) files in model_cache
+        cache_dir = ROOT / "model_cache"
+        if cache_dir.exists():
+            for p in cache_dir.rglob("*"):
+                if p.is_file() and p.stat().st_size == 0:
+                    try:
+                        p.unlink()
+                        print(f"[RAG] Removed corrupted file: {p.name}")
+                    except: pass
 
-        self.model = ChatOpenAI(
-            model=AI_MODEL,
-            openai_api_key=AI_API_KEY,
-            openai_api_base=AI_BASE_URL,
-            temperature=0.7
-        )
+        # Initialize Embeddings (Local)
         self.embeddings = HuggingFaceEmbeddings(
             model_name="all-MiniLM-L6-v2",
-            cache_folder=str(ROOT / "model_cache")
+            cache_folder=str(cache_dir)
         )
 
         # Load and Index Documents
         self._index_documents()
         self._ensure_schema()
+
+        # Initialize LLM (Requires API Key)
+        if AI_API_KEY:
+            self.model = ChatOpenAI(
+                model=AI_MODEL,
+                openai_api_key=AI_API_KEY,
+                openai_api_base=AI_BASE_URL,
+                temperature=0.7
+            )
+            print(f"[RAG] Advisor initialized with model {AI_MODEL}.")
+        else:
+            print("[RAG] Warning: AI_API_KEY not set. LLM features will be disabled.")
+
         self._initialized = True
-        print(f"[RAG] Advisor initialized successfully with model {AI_MODEL}.")
+        print(f"[RAG] Advisor initialization complete.")
 
     def _ensure_schema(self):
         """確保 ai_advice_history 支援歷史紀錄（多筆 uid）"""
@@ -261,24 +275,26 @@ class PDMS2Advisor:
                 context_parts.append(res.page_content)
 
         context = "\n---\n".join(set(context_parts))
+        weaknesses_str = "\n".join([f"- {w['task_name']} (ID: {w['task_id']}): 得分 {w['score']}" for w in weaknesses])
 
         # 4. 產生 Prompt 並呼叫 LLM
         prompt = f"""
-你是一位專業的兒童發展專家與職能治療師。
-以下是一位兒童在 PDMS-2（皮巴迪發展運動量表）評估中的表現：
-UID: {uid}
-表現較弱的項目：
-{chr(10).join([f"- {w['task_name']} (ID: {w['task_id']}): 得分 {w['score']}" for w in weaknesses])}
+你是一位專業的兒童發展專家（職能治療師）。請針對以下評估結果提供家長建議。
 
-背景知識參考：
+### 兒童表現與背景資訊：
 {context}
 
-請根據以上資訊，為家長撰寫一份專業且親切的建議。內容應包括：
-1. 簡單說明這些弱項代表的發展意義。
-2. 提供 3-4 個家長可以在家裡帶小朋友做的訓練活動（居家活動），要簡單、有趣且具備可執行性。
-3. 給予家長正向的鼓勵。
+### 待加強項目（得分未達精熟）：
+{weaknesses_str}
 
-請使用繁體中文撰寫，並使用 Markdown 格式（例如標題、列表）。
+### 寫作指南：
+1. **整合性總結**：不要分開列出每個項目，請將相似的弱項歸類，給出一個整體的發展現況總結。
+2. **精簡活動建議**：提供 3-4 個針對性的居家遊戲活動，需具備操作性、趣味性且生活化。
+3. **專業語氣**：溫和、鼓勵且具專業洞察。
+4. **禁止結尾推銷**：**絕對不要**在最後詢問是否要整理「居家練習表」或「打勾表」。
+5. **長度適中**：保持內容精煉，不要過於冗長。
+
+請直接開始撰寫建議內容：
 """
         try:
             response = self.model.invoke(prompt)
