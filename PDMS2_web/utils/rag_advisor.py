@@ -36,7 +36,7 @@ class PDMS2Advisor:
     def initialize(self):
         if self._initialized:
             return
-        
+
         if not AI_API_KEY:
             print("[RAG] Warning: AI_API_KEY not set.")
             return
@@ -51,21 +51,91 @@ class PDMS2Advisor:
             model_name="all-MiniLM-L6-v2",
             cache_folder=str(ROOT / "model_cache")
         )
-        
+
         # Load and Index Documents
         self._index_documents()
+        self._ensure_schema()
         self._initialized = True
         print(f"[RAG] Advisor initialized successfully with model {AI_MODEL}.")
 
+    def _ensure_schema(self):
+        """確保 ai_advice_history 支援歷史紀錄（多筆 uid）"""
+        try:
+            conn = self.get_db_connection()
+            try:
+                with conn.cursor() as cur:
+                    # Migrate to multi-row history: replace uid PK with auto-increment id
+                    cur.execute("SHOW COLUMNS FROM ai_advice_history LIKE 'id'")
+                    if not cur.fetchone():
+                        cur.execute("""
+                            ALTER TABLE ai_advice_history
+                                DROP PRIMARY KEY,
+                                ADD COLUMN id INT AUTO_INCREMENT PRIMARY KEY FIRST,
+                                ADD INDEX idx_uid (uid)
+                        """)
+                        print("[RAG] Migrated ai_advice_history to multi-row history schema.")
+                conn.commit()
+            finally:
+                conn.close()
+        except Exception as e:
+            print(f"[RAG] Schema check warning: {e}")
+
+    def check_advice_status(self, uid: str) -> dict:
+        """檢查快取建議是否存在，以及與當前分數是否一致"""
+        if not self._initialized:
+            self.initialize()
+        try:
+            perf = self.get_child_performance(uid)
+            current_sig = "|".join(
+                f"{p['task_id']}:{p['score']}"
+                for p in sorted(perf, key=lambda x: x['task_id'])
+            )
+            conn = self.get_db_connection()
+            try:
+                with conn.cursor() as cur:
+                    cur.execute(
+                        "SELECT advice, score_signature, updated_at "
+                        "FROM ai_advice_history WHERE uid=%s "
+                        "ORDER BY id DESC LIMIT 1",
+                        (uid,)
+                    )
+                    row = cur.fetchone()
+            finally:
+                conn.close()
+
+            if not row:
+                return {"has_advice": False, "is_fresh": False, "advice": None, "generated_at": None}
+            return {
+                "has_advice": True,
+                "is_fresh": row["score_signature"] == current_sig,
+                "advice": row["advice"],
+                "generated_at": str(row["updated_at"]) if row.get("updated_at") else None,
+            }
+        except Exception as e:
+            print(f"[RAG] check_advice_status failed for {uid}: {e}")
+            return {"has_advice": False, "is_fresh": False, "advice": None, "generated_at": None}
+
     def _index_documents(self):
+        persist_directory = str(ROOT / "rag_db")
+        chroma_db_file = Path(persist_directory) / "chroma.sqlite3"
+
+        # Load existing index if present — skip re-indexing
+        if chroma_db_file.exists():
+            self.vector_store = Chroma(
+                persist_directory=persist_directory,
+                embedding_function=self.embeddings
+            )
+            print(f"[RAG] Loaded existing vector store from {persist_directory}")
+            return
+
+        # First run: build index from documents
         docs_dir = ROOT / RAG_DOCS_PATH
         all_docs = []
-        
+
         # Parse PDMS2.md specifically for better chunking
         pdms_md = docs_dir / "PDMS2.md"
         if pdms_md.exists():
             content = pdms_md.read_text(encoding="utf-8")
-            # Simple markdown table parser for PDMS2.md
             lines = content.splitlines()
             headers = []
             for line in lines:
@@ -77,29 +147,26 @@ class PDMS2Advisor:
                 if line.startswith("|"):
                     cols = [c.strip() for c in line.split("|") if c.strip()]
                     if len(cols) >= 5:
-                        # Item #, Age, Item NAME, Procedure, Criteria
                         item_info = {headers[i]: cols[i] for i in range(len(cols))}
                         doc_text = f"Item #{item_info.get('Item #')}: {item_info.get('Item NAME')}\n"
                         doc_text += f"Target Age: {item_info.get('Age in months')} months\n"
                         doc_text += f"Procedure: {item_info.get('Procedure')}\n"
                         doc_text += f"Criteria: {item_info.get('Criteria')}"
-                        
                         all_docs.append(Document(
                             page_content=doc_text,
                             metadata={"source": "PDMS2.md", "item_id": item_info.get("Item #"), "type": "pdms_item"}
                         ))
-        
-        # Load other text/markdown files normally
+
+        # Load other markdown files normally
         for file_path in docs_dir.glob("*.md"):
-            if file_path.name == "PDMS2.md": continue
+            if file_path.name == "PDMS2.md":
+                continue
             content = file_path.read_text(encoding="utf-8")
             splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
-            chunks = splitter.split_text(content)
-            for chunk in chunks:
+            for chunk in splitter.split_text(content):
                 all_docs.append(Document(page_content=chunk, metadata={"source": file_path.name}))
 
         if all_docs:
-            persist_directory = str(ROOT / "rag_db")
             self.vector_store = Chroma.from_documents(
                 documents=all_docs,
                 embedding=self.embeddings,
@@ -115,7 +182,8 @@ class PDMS2Advisor:
             password=DB_PASSWORD,
             database=DB_NAME,
             charset="utf8mb4",
-            cursorclass=pymysql.cursors.DictCursor
+            cursorclass=pymysql.cursors.DictCursor,
+            connect_timeout=30
         )
 
     def get_child_performance(self, uid: str) -> List[Dict[str, Any]]:
@@ -143,10 +211,10 @@ class PDMS2Advisor:
             conn.close()
         return performance
 
-    def generate_advice(self, uid: str) -> str:
+    def generate_advice(self, uid: str, force: bool = False) -> str:
         if not self._initialized:
             self.initialize()
-        
+
         if not self._initialized:
             return "AI 顧問尚未初始化（可能缺少 API Key），請聯絡系統管理員。"
 
@@ -154,6 +222,29 @@ class PDMS2Advisor:
         perf = self.get_child_performance(uid)
         if not perf:
             return "找不到該兒童的施測紀錄。"
+
+        # 建立分數簽名，格式: task1:score|task2:score... (排序以確保一致性)
+        perf_sorted = sorted(perf, key=lambda x: x['task_id'])
+        score_sig = "|".join([f"{p['task_id']}:{p['score']}" for p in perf_sorted])
+
+        # 檢查快取（force=True 時略過）
+        if not force:
+            conn = self.get_db_connection()
+            try:
+                with conn.cursor() as cur:
+                    cur.execute(
+                        "SELECT advice, score_signature FROM ai_advice_history "
+                        "WHERE uid=%s ORDER BY id DESC LIMIT 1",
+                        (uid,)
+                    )
+                    cache = cur.fetchone()
+                    if cache and cache['score_signature'] == score_sig:
+                        print(f"[RAG] Using cached advice for {uid}")
+                        return cache['advice']
+            except Exception as e:
+                print(f"[RAG] Cache check failed: {e}")
+            finally:
+                conn.close()
 
         # 2. 篩選弱項 (分數 0 或 1)
         weaknesses = [p for p in perf if p['score'] < 2]
@@ -191,7 +282,25 @@ UID: {uid}
 """
         try:
             response = self.model.invoke(prompt)
-            return response.content
+            advice_text = response.content
+            
+            # 5. 儲存至歷史紀錄
+            conn = self.get_db_connection()
+            try:
+                with conn.cursor() as cur:
+                    cur.execute(
+                        "INSERT INTO ai_advice_history (uid, advice, score_signature) "
+                        "VALUES (%s, %s, %s)",
+                        (uid, advice_text, score_sig)
+                    )
+                conn.commit()
+                print(f"[RAG] Saved new advice for {uid} to history.")
+            except Exception as e:
+                print(f"[RAG] Failed to save advice for {uid}: {e}")
+            finally:
+                conn.close()
+
+            return advice_text
         except Exception as e:
             return f"生成建議時發生錯誤: {str(e)}"
 

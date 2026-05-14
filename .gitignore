@@ -70,3 +70,6 @@ testPDMS.sql
 #sam
 sam/
 
+# ChromaDB vector store (auto-generated, do not commit)
+PDMS2_web/rag_db/
+

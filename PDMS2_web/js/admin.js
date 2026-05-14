@@ -474,7 +474,9 @@
     `;
     
     try {
+      console.log("[AI] Requesting advice for:", state.selUserId);
       const r = await fetch(`/api/ai_advice/${state.selUserId}`, { credentials: 'include' });
+      if (!r.ok) throw new Error(`HTTP error! status: ${r.status}`);
       const js = await r.json();
       if (js.ok) {
         content.innerHTML = `<div class="markdown-body">${marked.parse(js.advice)}</div>`;
@@ -482,6 +484,7 @@
         content.innerHTML = `<div style="color: #ef4444; text-align: center; padding: 40px;">❌ 產生建議失敗：${js.msg || '未知錯誤'}</div>`;
       }
     } catch (e) {
+      console.error("[AI] Error:", e);
       content.innerHTML = `<div style="color: #ef4444; text-align: center; padding: 40px;">❌ 連線失敗，請檢查網路狀況。</div>`;
     }
   });

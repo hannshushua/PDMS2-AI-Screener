@@ -19,6 +19,21 @@ from flask import Flask, jsonify, request, send_file, session
 BASE_DIR = Path(__file__).resolve().parent
 ENV_PATH = BASE_DIR.parent / "PDMS2_web" / ".env"
 
+# 設定 sys.path 以支援 import PDMS2_web 的 advisor
+PDMS2_WEB_DIR = BASE_DIR.parent / "PDMS2_web"
+if str(PDMS2_WEB_DIR) not in sys.path:
+    sys.path.insert(0, str(PDMS2_WEB_DIR))
+
+# Import RAG Advisor（建議生成）
+try:
+    from utils.rag_advisor import advisor
+    ADVISOR_AVAILABLE = True
+except ImportError as e:
+    ADVISOR_AVAILABLE = False
+    advisor = None
+    import warnings
+    warnings.warn(f"[MacWeb] 無法導入 RAG Advisor: {e}")
+
 LOG_DIR = BASE_DIR / "logs"
 LOG_FILE = LOG_DIR / "web.log"
 
@@ -621,6 +636,52 @@ def run_remote_analysis(uid: str, img_id: str, script_path: Path) -> int:
     score = return_code if return_code in (0, 1, 2) else 0
     logger.info("[Analysis] Done: uid=%s, img_id=%s, score=%s", uid, img_id, score)
     return score
+
+
+# ── RAG 顧問 API (遠端生成建議) ───────────────────────────────────────────────
+@app.get("/api/ai_advice/<uid>")
+def api_get_ai_advice(uid):
+    """
+    遠端生成或查詢兒童的 AI 專家建議。
+    
+    Query params:
+      - check_only=1  : 只檢查快取狀態，不生成新建議
+      - force=1       : 忽略快取，強制生成新建議
+    
+    Returns:
+      {
+        "ok": true,
+        "advice": "建議文本...",
+        "has_advice": bool,
+        "is_fresh": bool,
+        "generated_at": "2026-05-14 15:30:00"
+      }
+    """
+    if not ADVISOR_AVAILABLE or advisor is None:
+        return jsonify({
+            "ok": False,
+            "msg": "AI 顧問功能尚未可用（缺少依賴或設定）"
+        }), 503
+    
+    if not is_valid_uid(uid):
+        return jsonify({"ok": False, "msg": "無效的 UID"}), 400
+    
+    check_only = request.args.get("check_only") == "1"
+    force = request.args.get("force") == "1"
+    
+    try:
+        if check_only:
+            logger.info("[AI_Advice] Status check for UID: %s", uid)
+            status = advisor.check_advice_status(uid)
+            return jsonify({"ok": True, **status})
+        
+        logger.info("[AI_Advice] Generate request for UID: %s, force=%s", uid, force)
+        advice = advisor.generate_advice(uid, force=force)
+        logger.info("[AI_Advice] Completed for UID: %s", uid)
+        return jsonify({"ok": True, "advice": advice})
+    except Exception as e:
+        logger.exception("[AI_Advice] Failed for %s: %s", uid, e)
+        return jsonify({"ok": False, "msg": str(e)}), 500
 
 
 @app.post("/api/analysis/submit")

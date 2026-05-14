@@ -53,6 +53,7 @@ DB = dict(
     charset="utf8mb4",
     cursorclass=pymysql.cursors.DictCursor,
     autocommit=True,
+    connect_timeout=30,
 )
 
 
@@ -139,14 +140,28 @@ CORS(app, supports_credentials=True)
 # ── AI 顧問 API ──────────────────────────────────────────────────────────────
 @app.route("/api/ai_advice/<uid>")
 def api_get_ai_advice(uid):
-    """
-    取得該兒童的 AI 專家建議。
-    """
+    user = current_user()
+    if not user:
+        return jsonify({"ok": False, "msg": "未登入"}), 401
+    if not can_access_uid(uid):
+        return jsonify({"ok": False, "msg": "無存取權限"}), 403
+
+    check_only = request.args.get("check_only") == "1"
+    force = request.args.get("force") == "1"
+
     try:
-        advice = advisor.generate_advice(uid)
+        if check_only:
+            write_to_console(f"[AI] Status check for UID: {uid}", "INFO")
+            status = advisor.check_advice_status(uid)
+            return jsonify({"ok": True, **status})
+
+        write_to_console(f"[AI] Generate request for UID: {uid}, force={force}", "INFO")
+        advice = advisor.generate_advice(uid, force=force)
+        write_to_console(f"[AI] Completed for UID: {uid}", "INFO")
         return jsonify({"ok": True, "advice": advice})
     except Exception as e:
-        write_to_console(f"[AI] generate_advice failed: {e}", "ERROR")
+        write_to_console(f"[AI] Failed for {uid}: {e}", "ERROR")
+        traceback.print_exc()
         return jsonify({"ok": False, "msg": str(e)}), 500
 
 
