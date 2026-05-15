@@ -3,6 +3,7 @@
 PDMS2_web/console.txt
 web.log
 /PDMS2_web/console.txt
+/PDMS2_web/admin_console.txt
 
 
 # --- 媒體檔案處理 (預設忽略，特定追蹤) ---

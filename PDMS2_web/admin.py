@@ -250,7 +250,7 @@ def extract_uid_filename(path_or_url: str):
 
 
 def write_to_console(message, level="INFO"):
-    console_path = ROOT / "console.txt"
+    console_path = ROOT / "admin_console.txt"
     ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     try:
         with open(console_path, "a", encoding="utf-8") as f:

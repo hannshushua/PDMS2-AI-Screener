@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 # RAG & LLM libraries
 from langchain_openai import ChatOpenAI
 from langchain_huggingface import HuggingFaceEmbeddings
-from langchain_community.vectorstores import Chroma
+from langchain_chroma import Chroma
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.docstore.document import Document
 
@@ -202,7 +202,7 @@ class PDMS2Advisor:
         try:
             with conn.cursor() as cur:
                 cur.execute(
-                    "SELECT advice, score_signature, generated_at FROM ai_advice_history WHERE uid=%s ORDER BY id DESC LIMIT 1",
+                    "SELECT advice, score_signature, updated_at FROM ai_advice_history WHERE uid=%s ORDER BY id DESC LIMIT 1",
                     (uid,)
                 )
                 row = cur.fetchone()
@@ -213,7 +213,7 @@ class PDMS2Advisor:
             return {"has_advice": False, "is_fresh": False, "advice": None, "generated_at": None}
 
         is_fresh = row["score_signature"] == score_sig
-        generated_at = row["generated_at"].isoformat() if row["generated_at"] else None
+        generated_at = row["updated_at"].isoformat() if row["updated_at"] else None
         return {"has_advice": True, "is_fresh": is_fresh, "advice": row["advice"], "generated_at": generated_at}
 
     def generate_advice(self, uid: str, age_months: int = None, force: bool = False) -> str:
