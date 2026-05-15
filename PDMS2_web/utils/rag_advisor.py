@@ -191,6 +191,31 @@ class PDMS2Advisor:
         perf_sorted = sorted(perf, key=lambda x: x['task_id'])
         return "|".join([f"{p['task_id']}:{p['score']}" for p in perf_sorted])
 
+    def check_advice_status(self, uid: str) -> dict:
+        if not self._initialized: self.initialize()
+        perf = self.get_child_performance(uid)
+        if not perf:
+            return {"has_advice": False, "is_fresh": False, "advice": None, "generated_at": None}
+
+        score_sig = self._get_score_signature(perf)
+        conn = self.get_db_connection()
+        try:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "SELECT advice, score_signature, generated_at FROM ai_advice_history WHERE uid=%s ORDER BY id DESC LIMIT 1",
+                    (uid,)
+                )
+                row = cur.fetchone()
+        finally:
+            conn.close()
+
+        if not row:
+            return {"has_advice": False, "is_fresh": False, "advice": None, "generated_at": None}
+
+        is_fresh = row["score_signature"] == score_sig
+        generated_at = row["generated_at"].isoformat() if row["generated_at"] else None
+        return {"has_advice": True, "is_fresh": is_fresh, "advice": row["advice"], "generated_at": generated_at}
+
     def generate_advice(self, uid: str, age_months: int = None, force: bool = False) -> str:
         if not self._initialized: self.initialize()
         if not self.model: return "AI 顧問不可用。"
