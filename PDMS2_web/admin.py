@@ -16,6 +16,8 @@ import pymysql
 from urllib.parse import urlencode, urlparse
 import re
 
+from utils.rag_advisor import advisor
+
 print("====== CURRENT ADMIN SERVER IS RUNNING (PORT 8001) ======")
 
 ROOT = Path(__file__).parent.resolve()
@@ -51,6 +53,7 @@ DB = dict(
     charset="utf8mb4",
     cursorclass=pymysql.cursors.DictCursor,
     autocommit=True,
+    connect_timeout=30,
 )
 
 
@@ -132,6 +135,34 @@ IMAGE_SIGN_SECRET = _env.get("IMAGE_SIGN_SECRET", "")
 app = Flask(__name__)
 app.secret_key = secrets.token_hex(16)
 CORS(app, supports_credentials=True)
+
+
+# ── AI 顧問 API ──────────────────────────────────────────────────────────────
+@app.route("/api/ai_advice/<uid>")
+def api_get_ai_advice(uid):
+    user = current_user()
+    if not user:
+        return jsonify({"ok": False, "msg": "未登入"}), 401
+    if not can_access_uid(uid):
+        return jsonify({"ok": False, "msg": "無存取權限"}), 403
+
+    check_only = request.args.get("check_only") == "1"
+    force = request.args.get("force") == "1"
+
+    try:
+        if check_only:
+            write_to_console(f"[AI] Status check for UID: {uid}", "INFO")
+            status = advisor.check_advice_status(uid)
+            return jsonify({"ok": True, **status})
+
+        write_to_console(f"[AI] Generate request for UID: {uid}, force={force}", "INFO")
+        advice = advisor.generate_advice(uid, force=force)
+        write_to_console(f"[AI] Completed for UID: {uid}", "INFO")
+        return jsonify({"ok": True, "advice": advice})
+    except Exception as e:
+        write_to_console(f"[AI] Failed for {uid}: {e}", "ERROR")
+        traceback.print_exc()
+        return jsonify({"ok": False, "msg": str(e)}), 500
 
 
 def current_user() -> dict:
@@ -219,7 +250,7 @@ def extract_uid_filename(path_or_url: str):
 
 
 def write_to_console(message, level="INFO"):
-    console_path = ROOT / "console.txt"
+    console_path = ROOT / "admin_console.txt"
     ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     try:
         with open(console_path, "a", encoding="utf-8") as f:

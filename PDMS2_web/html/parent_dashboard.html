@@ -266,6 +266,7 @@
       padding: 80px 40px;
       font-size: 18px;
     }
+    @keyframes spin { to { transform: rotate(360deg); } }
     .last-test-date {
       font-size: clamp(13px, 1.3vw, 15px);
       color: var(--text-muted);
@@ -391,6 +392,25 @@
       </div>
 
       <a href="/html/admin.html" class="detail-btn">查看完整測驗紀錄明細</a>
+      
+      <!-- AI 居家訓練建議卡片 -->
+      <div id="ai-advice-section" class="card" style="margin-bottom: 48px;">
+        <div class="card-header" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px;">
+          <div style="display:flex; align-items:center; gap:10px;">
+            <span>✨ AI 居家訓練建議</span>
+            <span id="ai-freshness-badge" style="display:none; font-size:13px; font-weight:600; padding:3px 12px; border-radius:99px;"></span>
+          </div>
+          <button id="btn-update-advice" style="display:none; background:linear-gradient(135deg,#6366f1 0%,#8b5cf6 100%); color:#fff; border:none; border-radius:12px; padding:9px 20px; font-size:15px; font-weight:700; cursor:pointer; box-shadow:0 3px 0 #4f46e5; font-family:inherit; transition:opacity 0.2s;">
+            🔄 更新建議
+          </button>
+        </div>
+        <div id="ai-advice-inline-content" style="padding:24px 32px; line-height:1.8; color:#374151; font-size:17px;">
+          <div style="text-align:center; color:var(--text-muted); padding:40px;">
+            <div style="font-size:32px; margin-bottom:12px;">⏳</div>
+            <div>正在準備 AI 建議...</div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -422,6 +442,8 @@
   </dialog>
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="../js/admin.js"></script>
   <script>
   (function () {
     const CHAPTERS = [
@@ -572,6 +594,19 @@
 
       document.getElementById('loading-msg').style.display = 'none';
       document.getElementById('dashboard').style.display = '';
+
+      // ── AI 建議：自動載入 ──────────────────────────────────────────────────
+      // 計算當前分數簽名（與後端邏輯一致：排序 task_id，僅包含有分數的項目）
+      const _sigParts = [];
+      Array.from(latestMap.keys()).sort().forEach(tid => {
+        const rec = latestMap.get(tid);
+        if (rec && rec.score !== null && rec.score !== undefined) {
+          _sigParts.push(`${tid}:${rec.score}`);
+        }
+      });
+      const _currentSig = _sigParts.join('|');
+
+      initAiAdviceSection(user.account, _currentSig);
     }
 
     function renderRadar(data) {
@@ -663,6 +698,122 @@
       }).join('');
     }
 
+    // ── AI 建議輔助函式 ────────────────────────────────────────────────────────
+
+    function setAiLoading(msg) {
+      document.getElementById('ai-advice-inline-content').innerHTML = `
+        <div style="text-align:center; color:var(--text-muted); padding:40px;">
+          <div style="font-size:32px; margin-bottom:12px; animation:spin 1.2s linear infinite; display:inline-block;">⏳</div>
+          <div>${msg}</div>
+        </div>`;
+    }
+
+    function setAiContent(adviceText, isFresh, generatedAt) {
+      const badge = document.getElementById('ai-freshness-badge');
+      if (isFresh) {
+        badge.textContent = '✓ 已是最新';
+        badge.style.cssText = 'display:inline-block; background:#E7F8F4; color:#0D9E85; font-size:13px; font-weight:600; padding:3px 12px; border-radius:99px;';
+      } else {
+        badge.textContent = '⚠ 分數已更新';
+        badge.style.cssText = 'display:inline-block; background:#FFF3D6; color:#B87800; font-size:13px; font-weight:600; padding:3px 12px; border-radius:99px;';
+      }
+      const dateNote = generatedAt ? `<div style="font-size:13px; color:var(--text-muted); margin-bottom:16px;">建議生成時間：${generatedAt.slice(0,16).replace('T',' ')}</div>` : '';
+      document.getElementById('ai-advice-inline-content').innerHTML =
+        dateNote + `<div class="markdown-body">${marked.parse(adviceText)}</div>`;
+    }
+
+    function setAiError(msg) {
+      document.getElementById('ai-freshness-badge').style.display = 'none';
+      document.getElementById('ai-advice-inline-content').innerHTML =
+        `<div style="color:#ef4444; padding:32px; text-align:center;">❌ ${msg}</div>`;
+    }
+
+    async function initAiAdviceSection(uid, currentSig) {
+      const updateBtn = document.getElementById('btn-update-advice');
+
+      // 先查詢快取狀態
+      let status = null;
+      try {
+        const r = await fetch(`/api/ai_advice/${uid}?check_only=1`, { credentials: 'include' });
+        const js = await r.json();
+        if (js.ok) status = js;
+      } catch (e) {
+        console.warn('[AI] Status check failed:', e);
+      }
+
+      if (!status || !status.has_advice) {
+        // 首次登入，沒有建議 → 自動生成
+        setAiLoading('首次登入，正在為您自動生成 AI 居家訓練建議（約 10–20 秒）...');
+        updateBtn.style.display = 'none';
+        try {
+          const r = await fetch(`/api/ai_advice/${uid}`, { credentials: 'include' });
+          const js = await r.json();
+          if (js.ok) {
+            setAiContent(js.advice, true, null);
+            updateBtn.style.display = 'none';
+          } else {
+            setAiError(`生成失敗：${js.msg || '未知錯誤'}`);
+          }
+        } catch (e) {
+          console.error('[AI] Generate error:', e);
+          setAiError('連線失敗，請檢查網路與伺服器狀況。');
+        }
+      } else {
+        // 已有建議 → 顯示既有建議，依新鮮度決定提示
+        setAiContent(status.advice, status.is_fresh, status.generated_at);
+
+        // 顯示「更新建議」按鈕
+        updateBtn.style.display = '';
+        if (!status.is_fresh) {
+          updateBtn.textContent = '🔄 更新建議（分數已更新）';
+          updateBtn.style.background = 'linear-gradient(135deg,#f59e0b 0%,#d97706 100%)';
+          updateBtn.style.boxShadow = '0 3px 0 #b45309';
+        } else {
+          updateBtn.textContent = '🔄 重新生成建議';
+          updateBtn.style.background = 'linear-gradient(135deg,#6366f1 0%,#8b5cf6 100%)';
+          updateBtn.style.boxShadow = '0 3px 0 #4f46e5';
+        }
+
+        updateBtn.onclick = async () => {
+          // 點擊時重新確認是否有新分數
+          let freshCheck = { is_fresh: status.is_fresh };
+          try {
+            const r = await fetch(`/api/ai_advice/${uid}?check_only=1`, { credentials: 'include' });
+            const js = await r.json();
+            if (js.ok) freshCheck = js;
+          } catch (_) {}
+
+          if (freshCheck.is_fresh) {
+            if (!confirm('目前建議已是最新，確定要重新生成嗎？')) return;
+          }
+
+          updateBtn.disabled = true;
+          updateBtn.style.opacity = '0.6';
+          setAiLoading('正在根據最新分數重新生成建議（約 10–20 秒）...');
+          document.getElementById('ai-freshness-badge').style.display = 'none';
+
+          try {
+            const r = await fetch(`/api/ai_advice/${uid}?force=1`, { credentials: 'include' });
+            const js = await r.json();
+            if (js.ok) {
+              setAiContent(js.advice, true, null);
+              updateBtn.textContent = '🔄 重新生成建議';
+              updateBtn.style.background = 'linear-gradient(135deg,#6366f1 0%,#8b5cf6 100%)';
+              updateBtn.style.boxShadow = '0 3px 0 #4f46e5';
+            } else {
+              setAiError(`更新失敗：${js.msg || '未知錯誤'}`);
+            }
+          } catch (e) {
+            console.error('[AI] Update error:', e);
+            setAiError('連線失敗，請稍後再試。');
+          } finally {
+            updateBtn.disabled = false;
+            updateBtn.style.opacity = '1';
+          }
+        };
+      }
+    }
+
     // ⓘ tooltip
     const tooltip = document.createElement('div');
     tooltip.className = 'info-tooltip';
@@ -734,6 +885,6 @@
     init();
   })();
   </script>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 </body>
-
 </html>

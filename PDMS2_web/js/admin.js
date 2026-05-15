@@ -448,7 +448,46 @@
     }
   });
 
-  if ($selName) $selName.addEventListener('change', () => { state.selUserId = $selName.value; state.currentPage = 1; render(); });
+  if ($selName) $selName.addEventListener('change', () => { 
+    state.selUserId = $selName.value; 
+    state.currentPage = 1; 
+    render(); 
+    
+    // 顯示/隱藏 AI 建議按鈕
+    const aiBtn = document.getElementById('btn-ai-advice');
+    if (aiBtn) {
+      aiBtn.style.display = state.selUserId ? 'inline-block' : 'none';
+    }
+  });
+
+  document.getElementById('btn-ai-advice')?.addEventListener('click', async () => {
+    if (!state.selUserId) return;
+    const dialog = document.getElementById('ai-advice-dialog');
+    const content = document.getElementById('ai-advice-content');
+    
+    dialog.showModal();
+    content.innerHTML = `
+      <div style="text-align: center; padding: 40px;">
+        <div style="margin-bottom: 20px; font-size: 40px;">🤖</div>
+        <div>正在與 AI 專家連線，分析 ${state.selUserId} 的表現並生成建議...</div>
+      </div>
+    `;
+    
+    try {
+      console.log("[AI] Requesting advice for:", state.selUserId);
+      const r = await fetch(`/api/ai_advice/${state.selUserId}`, { credentials: 'include' });
+      if (!r.ok) throw new Error(`HTTP error! status: ${r.status}`);
+      const js = await r.json();
+      if (js.ok) {
+        content.innerHTML = `<div class="markdown-body">${marked.parse(js.advice)}</div>`;
+      } else {
+        content.innerHTML = `<div style="color: #ef4444; text-align: center; padding: 40px;">❌ 產生建議失敗：${js.msg || '未知錯誤'}</div>`;
+      }
+    } catch (e) {
+      console.error("[AI] Error:", e);
+      content.innerHTML = `<div style="color: #ef4444; text-align: center; padding: 40px;">❌ 連線失敗，請檢查網路狀況。</div>`;
+    }
+  });
   if ($selLvl) $selLvl.addEventListener('change', () => { state.selLevel = $selLvl.value; state.currentPage = 1; render(); });
 
   const $selDate = document.getElementById('sel-date');
