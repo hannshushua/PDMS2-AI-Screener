@@ -153,20 +153,28 @@ class PDMS2Advisor:
             database=DB_NAME, charset="utf8mb4", cursorclass=pymysql.cursors.DictCursor
         )
 
-    def _get_age_months(self, uid):
+    def _get_child_info(self, uid):
         conn = self.get_db_connection()
         try:
             with conn.cursor() as cur:
-                cur.execute("SELECT birthday FROM user_list WHERE uid = %s", (uid,))
+                cur.execute("SELECT name, birthday FROM user_list WHERE uid = %s", (uid,))
                 row = cur.fetchone()
-                if not row or not row['birthday']: return None
-                birthday = row['birthday']
-                if isinstance(birthday, str):
-                    birthday = datetime.strptime(birthday, "%Y-%m-%d")
-                today = datetime.now()
-                return (today.year - birthday.year) * 12 + today.month - birthday.month
-        except: return None
+                if not row: return None, None
+                name = row.get('name')
+                birthday = row.get('birthday')
+                age_months = None
+                if birthday:
+                    if isinstance(birthday, str):
+                        birthday = datetime.strptime(birthday, "%Y-%m-%d")
+                    today = datetime.now()
+                    age_months = (today.year - birthday.year) * 12 + today.month - birthday.month
+                return name, age_months
+        except: return None, None
         finally: conn.close()
+
+    def _get_age_months(self, uid):
+        _, age_months = self._get_child_info(uid)
+        return age_months
 
     def get_child_performance(self, uid: str) -> List[Dict[str, Any]]:
         conn = self.get_db_connection()
@@ -216,12 +224,15 @@ class PDMS2Advisor:
         generated_at = row["updated_at"].isoformat() if row["updated_at"] else None
         return {"has_advice": True, "is_fresh": is_fresh, "advice": row["advice"], "generated_at": generated_at}
 
-    def generate_advice(self, uid: str, age_months: int = None, force: bool = False) -> str:
+    def generate_advice(self, uid: str, age_months: int = None, child_name: str = None, force: bool = False) -> str:
         if not self._initialized: self.initialize()
         if not self.model: return "AI 顧問不可用。"
 
+        db_child_name, age_months_calc = self._get_child_info(uid)
         if age_months is None:
-            age_months = self._get_age_months(uid)
+            age_months = age_months_calc
+        if child_name is None:
+            child_name = db_child_name
         
         perf = self.get_child_performance(uid)
         if not perf: return "找不到施測紀錄。"
@@ -251,7 +262,9 @@ class PDMS2Advisor:
 
         context = "\n---\n".join(set(context_parts))
         weaknesses_str = "\n".join([f"- {w['task_name']} (ID: {w['task_id']}): 得分 {w['score']}" for w in weaknesses])
-        age_info = f"兒童年齡：{age_months} 個月" if age_months else "年齡資訊：未提供"
+        
+        child_name_str = child_name if child_name else "小朋友"
+        age_info = f"兒童姓名：{child_name_str}\n- 兒童年齡：{age_months} 個月" if age_months else f"兒童姓名：{child_name_str}\n- 年齡資訊：未提供"
 
         prompt = f"""
 你是一位專業的兒童職能治療師。針對以下 PDMS-2 評估結果提供整合性建議。
@@ -265,10 +278,10 @@ class PDMS2Advisor:
 {context}
 
 ### 指令：
-1. **整合總結**：歸類相似弱項，給出整體發展總結。
-2. **居家建議**：提供 3-4 個針對性且有趣的居家活動。
-3. **專業語氣**：溫暖且專業。
-4. **【強制規定】**：你的回覆最後一句話，必須是關於給家長的支持或鼓勵，**絕對禁止**詢問「是否需要進一步協助」、「是否需要整理表格/計畫」等任何後續服務。寫完建議與鼓勵後請立刻停止。
+1. **整合總結**：請將相似的發展弱項歸類，針對 {child_name_str} 給出一個整體的發展現況總結，語氣要溫暖、專屬。
+2. **居家建議**：提供 3-4 個針對性且有趣的居家活動。請結合 {child_name_str} 目前的年齡月份（{age_months or "36-72"} 個月），在活動中說明該活動對其當前月份年齡發展的意義與居家練習的調整。
+3. **親切稱呼**：請在生成的內容（總結、居家活動、給家長鼓勵）中適當且自然地提到小朋友的名字「{child_name_str}」，使建議更貼近客製化和溫馨關懷。
+4. **【強制規定】**：你的回覆最後一句話，必須是關於對家長及 {child_name_str} 的支持或鼓勵，**絕對禁止**詢問「是否需要進一步協助」、「是否需要整理表格/計畫」等任何後續服務。寫完建議與鼓勵後請立刻停止。
 
 請開始撰寫：
 """
