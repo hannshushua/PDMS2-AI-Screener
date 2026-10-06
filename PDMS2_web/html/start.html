@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="zh-Hant">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>童話故事入口</title>
+
+  <!-- 提前下載背景圖、預抓故事首頁 -->
+  <link rel="preload" as="image" href="/images/start-bg-chart.jpg" />
+  <link rel="prefetch" href="/html/index.html" />
+
+  <!-- 分離後的樣式與腳本 -->
+  <link rel="preload" href="/css/fonts/fmas-gensen-bpmf.woff2?v=3" as="font" type="font/woff2" crossorigin />
+  <link rel="stylesheet" href="/css/start.css?v=12" />
+  <script src="/js/start.js" defer></script>
+</head>
+
+<body>
+  <a href="/html/setting.html" class="setting-link">
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="3.2" />
+      <path d="M12 2.8v3M12 18.2v3M2.8 12h3M18.2 12h3M5.5 5.5l2.1 2.1M16.4 16.4l2.1 2.1M5.5 18.5l2.1-2.1M16.4 7.6l2.1-2.1" />
+    </svg>
+    攝影機設定
+  </a>
+  <div class="bg" aria-hidden="true"></div>
+
+  <main class="wrap">
+    <!-- 牆上的大字報：兩行注音楷體大字 -->
+    <h1 id="title" class="poster-title">
+      <span class="line">歡迎來到</span>
+      <span class="line">童話王國</span>
+    </h1>
+    <div class="chapter-bar" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span></div>
+    <p class="subtitle">沿著星光的小徑前行，新的篇章正等著你。</p>
+
+    <!-- 登入列：鑰匙格｜勇者編號｜進入故事，連成一條格線列 -->
+    <div class="entry" role="group" aria-labelledby="title">
+      <div class="uid-field">
+        <span class="uid-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" focusable="false">
+            <circle cx="7.5" cy="12" r="4" />
+            <path d="M11.5 12h10M17.5 12v3.6M20.5 12v2.6" />
+          </svg>
+        </span>
+        <input type="text" id="uid" name="uid" placeholder="輸入你的勇者編號" aria-label="勇者編號" autocomplete="off" required />
+      </div>
+      <button class="enter-btn" id="enterBtn" aria-label="進入故事（Enter）">進入故事</button>
+    </div>
+    <noscript>
+      <p class="hint">你的瀏覽器停用了 JavaScript，無法進入故事。</p>
+    </noscript>
+  </main>
+  <script src="/js/custom-scrollbar.js?v=2"></script>
+</body>
+
+</html>

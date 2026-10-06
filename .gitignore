@@ -1,0 +1,90 @@
+# --- PDMS2 專案特定忽略檔案 ---
+# 忽略日誌與紀錄檔
+PDMS2_web/console.txt
+web.log
+/PDMS2_web/console.txt
+/PDMS2_web/admin_console.txt
+
+
+# --- 媒體檔案處理 (預設忽略，特定追蹤) ---
+*.mp4
+*.jpg
+*.png
+*.jpeg
+*.gif
+*.zip
+
+# 特例：追蹤 picture/ 資料夾底下的所有圖片
+!picture/
+!picture/*.png
+!picture/*.jpg
+!picture/*.jpeg
+!picture/*.gif
+
+# 追蹤 PDMS2_web/images 內的素材
+!PDMS2_web/images/
+!PDMS2_web/images/*.jpg
+!PDMS2_web/images/*.png
+!PDMS2_web/images/icons/
+!PDMS2_web/images/icons/*.png
+!PDMS2_web/images/icons/*.jpg
+
+#追蹤 PDMS2_web/kid 內的素材（含子資料夾）
+!PDMS2_web/kid/
+!PDMS2_web/kid/**
+!PDMS2_web/kid/**/
+
+# 本地測試資料夾不追蹤
+PDMS2_web/kid/test*/
+
+# 追蹤 PDMS2_web/video 內的視頻檔案
+!PDMS2_web/video/
+!PDMS2_web/video/*.mp4
+# --- 開發環境與系統檔案 ---
+# macOS Finder metadata
+.DS_Store
+
+# IDE 設定 (VS Code)
+.vscode/
+PDMS2_web/.vscode/
+
+# Python 快取與環境
+__pycache__/
+*.pyc
+.venv/
+.env/
+.venv39/
+.env39/
+.env
+
+# Claude AI 設定
+CLAUDE.md
+.claude
+AGENTS.md
+
+# 舊版本與暫存資料庫
+old_version/
+.vscode/
+PDMS2_web/.vscode/
+testPDMS.sql
+
+#sam
+sam/
+
+# ChromaDB vector store (auto-generated, do not commit)
+PDMS2_web/rag_db/
+
+# Sentence Transformers model cache (auto-downloaded, do not commit)
+PDMS2_web/model_cache/
+
+# RAG test reports (generated output, do not commit)
+PDMS2_web/scripts/rag_test_report*.md
+
+# FMD_AI_Screener document generation outputs
+/imgs/
+/設計文件書_FMD_AI_Screener.pdf
+
+
+# 大模型不進 git（sam2 為 ultralytics 標準權重可自動下載；shape_det 未使用）
+PDMS2_web/models/sam2_b.pt
+PDMS2_web/models/shape_det.pt

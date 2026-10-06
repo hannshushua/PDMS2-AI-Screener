@@ -1,0 +1,252 @@
+:root {
+  --bg-dark: #0b1221;
+  --bg-mid: #171a3a;
+  --accent: #8b5cf6; /* 紫 */
+  --accent-2: #ec4899; /* 粉 */
+  --text: #f8fafc;
+  --glass: rgba(255, 255, 255, 0.06);
+  --glass-bright: rgba(255, 255, 255, 0.14);
+}
+@font-face {
+  font-family: "BpmfGenYoGothic";
+  src: url("./BpmfGenYoGothic-R.ttf") format("truetype");
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+* {
+  box-sizing: border-box;
+}
+html,
+body {
+  height: 100%;
+}
+body {
+  margin: 0;
+  color: var(--text);
+  font-family: "BpmfGenYoGothic";
+
+  background: radial-gradient(
+      1200px 60% at 80% 10%,
+      rgba(139, 92, 246, 0.25),
+      transparent 60%
+    ),
+    radial-gradient(
+      900px 60% at 15% 90%,
+      rgba(236, 72, 153, 0.18),
+      transparent 70%
+    ),
+    linear-gradient(180deg, var(--bg-dark), var(--bg-mid));
+  overflow: hidden;
+}
+
+/* 背景圖層 */
+.bg {
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  background: url("/images/fairytale1.jpg") center / cover no-repeat fixed;
+  filter: saturate(1.1) brightness(0.8);
+}
+.bg::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    rgba(11, 18, 33, 0.55),
+    rgba(23, 26, 58, 0.7)
+  );
+  backdrop-filter: blur(1px);
+}
+
+/* 星光/螢火特效 */
+.stars,
+.glows {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: -1;
+}
+.stars {
+  background-image: radial-gradient(
+      1px 1px at 20% 30%,
+      #ffffffcc 50%,
+      transparent 51%
+    ),
+    radial-gradient(1px 1px at 80% 20%, #ffffffcc 50%, transparent 51%),
+    radial-gradient(1px 1px at 60% 70%, #ffffffcc 50%, transparent 51%),
+    radial-gradient(1px 1px at 30% 80%, #ffffffcc 50%, transparent 51%),
+    radial-gradient(1px 1px at 50% 50%, #ffffffcc 50%, transparent 51%);
+  background-repeat: repeat;
+  background-size: 300px 300px;
+  animation: drift 30s linear infinite;
+  opacity: 0.6;
+}
+@keyframes drift {
+  0% {
+    transform: translateY(0);
+  }
+  100% {
+    transform: translateY(-300px);
+  }
+}
+.glows::before,
+.glows::after {
+  content: "";
+  position: absolute;
+  width: 50vmax;
+  height: 50vmax;
+  border-radius: 50%;
+  filter: blur(70px);
+  opacity: 0.18;
+  mix-blend-mode: screen;
+}
+.glows::before {
+  left: -10vmax;
+  top: -10vmax;
+  background: radial-gradient(circle, var(--accent), transparent 60%);
+}
+.glows::after {
+  right: -8vmax;
+  bottom: -8vmax;
+  background: radial-gradient(circle, var(--accent-2), transparent 60%);
+}
+
+/* 置中容器 */
+.wrap {
+  min-height: 100svh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+/* 玻璃卡片 */
+.card {
+  width: min(860px, 92vw);
+  padding: clamp(24px, 4vw, 48px);
+  border-radius: 28px;
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.07),
+    rgba(255, 255, 255, 0.03)
+  );
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(8px);
+  text-align: center;
+  transform: translateY(6px);
+  animation: rise 0.9s ease-out both;
+}
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(6px);
+  }
+}
+
+h1 {
+  font-family: "BpmfGenYoGothic";
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  margin: 0 0 8px;
+  font-size: clamp(28px, 4.6vw, 52px);
+  text-shadow: 0 2px 20px rgba(139, 92, 246, 0.35);
+}
+.subtitle {
+  margin: 6px 0 26px;
+  font-size: clamp(14px, 2.4vw, 18px);
+  opacity: 0.92;
+}
+
+/* 大按鈕 */
+.enter-btn {
+  font-family: "BpmfGenYoGothic";
+  --h: clamp(56px, 8.2vmin, 72px);
+  --padx: clamp(20px, 4.5vmin, 36px);
+  display: inline-grid;
+  place-items: center;
+  padding: 0 var(--padx);
+  height: var(--h);
+  font-size: clamp(16px, 2.6vmin, 22px);
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: white;
+  text-decoration: none;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  border: none;
+  border-radius: 999px;
+  box-shadow: 0 12px 30px rgba(139, 92, 246, 0.45),
+    0 6px 14px rgba(236, 72, 153, 0.25);
+  cursor: pointer;
+  position: relative;
+  isolation: isolate;
+  transition: transform 0.15s ease, box-shadow 0.2s ease, filter 0.2s ease;
+}
+.enter-btn:hover {
+  transform: translateY(-2px);
+  filter: brightness(1.06);
+  box-shadow: 0 16px 36px rgba(139, 92, 246, 0.52),
+    0 8px 18px rgba(236, 72, 153, 0.28);
+}
+.enter-btn:active {
+  transform: translateY(0);
+  filter: brightness(0.98);
+}
+.enter-btn:focus-visible {
+  outline: 3px solid rgba(236, 72, 153, 0.8);
+  outline-offset: 4px;
+}
+
+/* 按鈕光暈 */
+.enter-btn::before {
+  content: "";
+  position: absolute;
+  inset: -10px;
+  z-index: -1;
+  border-radius: inherit;
+  background: radial-gradient(
+      40% 60% at 50% 0%,
+      rgba(139, 92, 246, 0.45),
+      transparent 60%
+    ),
+    radial-gradient(
+      60% 60% at 100% 100%,
+      rgba(236, 72, 153, 0.35),
+      transparent 60%
+    );
+  filter: blur(18px);
+  opacity: 0.85;
+  transition: opacity 0.2s ease;
+}
+.enter-btn:hover::before {
+  opacity: 1;
+}
+
+.hint {
+  margin-top: 14px;
+  font-size: 13px;
+  opacity: 0.8;
+}
+.hint a {
+  color: #c4b5fd;
+}
+
+/* 動畫偏好 */
+@media (prefers-reduced-motion: reduce) {
+  .stars {
+    animation: none;
+  }
+  .card {
+    animation: none;
+    transform: none;
+  }
+  .enter-btn {
+    transition: none;
+  }
+}

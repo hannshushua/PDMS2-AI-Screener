@@ -1,0 +1,250 @@
+/* ══════════════════════════════════════════════════════════════════════
+   入口：牆上的大字報
+   遮罩後的童話王國插畫鋪滿全頁；兩行巨大的紙白注音大字標題；
+   一條五關五色條；中央一整條紙白登入列。唯一的動態是五色條由左畫出。
+   ══════════════════════════════════════════════════════════════════════ */
+
+:root {
+  --paper:    #FBFBF8;
+  --paper-dim:#EDECE6;
+  --ink:      #1D1C1A;
+  --ink-soft: #5B5953;
+  --ink-hover:#3A3834;
+  --rule:       3px;
+  --rule-heavy: 4px;
+  --ch1: #C92F25; --ch2: #F2B705; --ch3: #17804A; --ch4: #2447B0; --ch5: #6D3BA5;
+  --font:       "PingFang TC", "Microsoft JhengHei UI", "Microsoft JhengHei", "Noto Sans TC", sans-serif;
+  --font-title: "FMAS GenSen Bpmf", "PingFang TC", "Microsoft JhengHei UI", "Microsoft JhengHei", "Noto Sans TC", sans-serif;
+  --font-read:  var(--font-title);
+}
+
+/* 源泉注音圓體 粗（與關卡頁同一套）：裁切版，授權見 css/fonts/ */
+@font-face {
+  font-family: "FMAS GenSen Bpmf";
+  src: url("fonts/fmas-gensen-bpmf.woff2?v=3") format("woff2"),
+       url("fonts/fmas-gensen-bpmf.woff?v=3") format("woff");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+* { box-sizing: border-box; }
+
+html, body { height: 100%; }
+
+body {
+  margin: 0;
+  color: var(--paper);
+  background: var(--ink);
+  font-family: var(--font-read);
+  overflow: hidden;
+  -webkit-tap-highlight-color: transparent;
+}
+
+::selection { background: var(--ch2); color: var(--ink); }
+
+/* 背景：掛圖風格的童話王國；舊的 fairytale2.jpg 仍保留在 images/ */
+.bg {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background: #CFE3F2 url("/images/start-bg-chart.jpg") center 70% / cover no-repeat;
+}
+/* 深色遮罩（使用者指定）：把插畫壓後一層，讓大字與登入列站到前面 */
+.bg::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgba(29, 28, 26, 0.55);
+}
+
+/* 大人用的設定入口：右上角一張小標籤 */
+.setting-link {
+  position: fixed;
+  top: max(16px, env(safe-area-inset-top));
+  right: max(16px, env(safe-area-inset-right));
+  z-index: 5;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 46px;
+  padding: 0 16px;
+  background: var(--paper);
+  color: var(--ink);
+  border: var(--rule) solid var(--ink);
+  border-radius: 6px;
+  font-family: var(--font);
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-decoration: none;
+  transition: background-color .12s ease-out, color .12s ease-out;
+}
+.setting-link svg { width: 20px; height: 20px; flex: 0 0 auto; }
+.setting-link:active { background: var(--ink); color: var(--paper); }
+.setting-link:focus-visible { outline: var(--rule) solid var(--paper); outline-offset: 3px; }
+
+/* ── 版面：一欄置中，整組略偏上，讓插畫下緣的積木橋露出來 ── */
+.wrap {
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 72px max(24px, env(safe-area-inset-right)) 12vh max(24px, env(safe-area-inset-left));
+  text-align: center;
+}
+
+/* ── 大字報標題 ── */
+.poster-title {
+  margin: 0;
+  font-family: var(--font-title);
+  font-weight: normal;
+  font-size: clamp(64px, 12.5vmin, 150px);
+  line-height: 1.12;
+  letter-spacing: 0.02em;
+  color: var(--paper);
+}
+.poster-title .line { display: block; white-space: nowrap; }
+
+/* ── 五關五色條：與關卡頁分頁同一組顏色，墨線分格 ── */
+.chapter-bar {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: var(--rule);
+  width: min(560px, 74vw);
+  height: 18px;
+  margin: clamp(14px, 2.6vh, 26px) 0 clamp(12px, 2vh, 20px);
+  padding: var(--rule);
+  background: var(--ink);
+  transform-origin: left center;
+  animation: bar-draw .7s cubic-bezier(.16, 1, .3, 1) .15s both;
+}
+.chapter-bar span:nth-child(1) { background: var(--ch1); }
+.chapter-bar span:nth-child(2) { background: var(--ch2); }
+.chapter-bar span:nth-child(3) { background: var(--ch3); }
+.chapter-bar span:nth-child(4) { background: var(--ch4); }
+.chapter-bar span:nth-child(5) { background: var(--ch5); }
+@keyframes bar-draw {
+  from { transform: scaleX(0); }
+  to   { transform: scaleX(1); }
+}
+
+.subtitle {
+  margin: 0 0 clamp(20px, 3.6vh, 36px);
+  font-size: clamp(18px, 2.4vmin, 24px);
+  line-height: 2;
+  color: rgba(251, 251, 248, 0.9);
+  text-wrap: balance;
+}
+
+/* ── 登入列：一條紙白格線列，鑰匙格｜輸入欄｜進入故事 ── */
+.entry {
+  display: flex;
+  align-items: stretch;
+  width: min(720px, 92vw);
+  background: var(--paper);
+  border: var(--rule-heavy) solid var(--ink);
+}
+.entry:focus-within { outline: var(--rule-heavy) solid var(--ch2); outline-offset: 4px; }
+
+.uid-field {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+}
+.uid-icon {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  align-self: stretch;
+  width: 68px;
+  color: var(--ink);
+  background: var(--ch2);
+  border-right: var(--rule) solid var(--ink);
+}
+.uid-icon svg { width: 32px; height: 32px; transform-origin: 30% 50%; }
+.uid-icon.shaking svg { animation: key-shake 0.38s ease-in-out; }
+@keyframes key-shake {
+  0%   { transform: rotate(0deg); }
+  20%  { transform: rotate(-18deg); }
+  45%  { transform: rotate(14deg); }
+  65%  { transform: rotate(-10deg); }
+  82%  { transform: rotate(6deg); }
+  100% { transform: rotate(0deg); }
+}
+.uid-field input {
+  flex: 1;
+  min-width: 0;
+  height: clamp(64px, 9vmin, 80px);
+  padding: 0 20px;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font-family: var(--font-read);
+  font-size: clamp(20px, 2.8vmin, 26px);
+  outline: none;
+}
+.uid-field input::placeholder { color: #6B6963; }
+
+.enter-btn {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 0 clamp(22px, 3.6vmin, 36px);
+  background: var(--ink);
+  color: var(--paper);
+  border: 0;
+  border-left: var(--rule) solid var(--ink);
+  font-family: var(--font-read);
+  font-size: clamp(21px, 3vmin, 27px);
+  font-weight: normal;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: background-color .12s ease-out, color .12s ease-out;
+}
+.enter-btn::after {
+  content: "";
+  width: 1em;
+  height: 1em;
+  background: currentColor;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4.5 12H19M13 5.5l6.5 6.5-6.5 6.5'/%3E%3C/svg%3E") center / contain no-repeat;
+          mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4.5 12H19M13 5.5l6.5 6.5-6.5 6.5'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+.enter-btn:active { background: var(--paper); color: var(--ink); }
+.enter-btn:disabled { background: #6E6C66; cursor: progress; }
+.enter-btn:focus-visible { outline: var(--rule) solid var(--ch2); outline-offset: -8px; }
+
+.hint { margin-top: 14px; font-size: 14px; color: var(--paper); }
+
+@media (hover: hover) and (pointer: fine) {
+  .setting-link:hover { background: var(--paper-dim); }
+  .enter-btn:hover:not(:disabled) { background: var(--ink-hover); }
+}
+
+/* 矮視窗：縮小標題並允許捲動 */
+@media (max-height: 660px) {
+  body { overflow: auto; }
+  .wrap { justify-content: flex-start; padding-top: 72px; padding-bottom: 32px; }
+  .poster-title { font-size: 60px; }
+}
+
+/* 窄視窗：登入列改上下兩層 */
+@media (max-width: 640px) {
+  .setting-link { min-height: 42px; padding: 0 12px; font-size: 14px; }
+  .entry { flex-direction: column; }
+  .enter-btn { min-height: 64px; border-left: 0; border-top: var(--rule) solid var(--ink); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chapter-bar { animation: none; }
+  .uid-icon.shaking svg { animation: none; }
+  * { transition-duration: 0.01ms !important; }
+}
+
+/* 捲軸只留 js/custom-scrollbar.js 畫的那一條 */
+* { scrollbar-width: none; }
+*::-webkit-scrollbar { width: 0; height: 0; }

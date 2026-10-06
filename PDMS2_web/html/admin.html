@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="zh-Hant">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>測驗管理 | 兒童測驗平台</title>
+  <link rel="stylesheet" href="../css/admin.css">
+</head>
+
+<body>
+  <div class="header">
+    <div class="brand">兒童發展測驗平台</div>
+    <div class="user-info">
+      <span id="user-role-display">讀取身分中...</span>
+      <button class="text-link" id="btn-change-pwd" style="display:none;">修改帳密</button>
+      <button class="text-link" id="btn-logout">登出系統</button>
+    </div>
+  </div>
+
+  <div class="wrap">
+    <div class="card">
+      <div class="card-header">
+        篩選條件
+        <span id="history-badge" style="display:none; background:var(--primary); color:#fff; font-weight:700; font-size:13px; padding:4px 14px; border-radius:20px;">歷史模式</span>
+      </div>
+      <div class="toolbar">
+        <div class="toolbar-group">
+          <select data-role="sel-name" style="width: 260px;">
+            <option value="">（請選擇受測者）</option>
+          </select>
+          <select data-role="sel-level" style="width: 280px;">
+            <option value="">（請選擇測驗項目）</option>
+          </select>
+          <button class="btn" data-action="clear-filter" title="清空受測者與測驗項目的篩選，回到完整清單">清除條件</button>
+          <button class="btn" id="btn-ai-advice" title="依這位受測者的各關卡成績，由 AI 生成居家訓練建議（需連線分析，約需數十秒）" style="background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); color: white; border: none; display: none;">✨ AI 專家建議</button>
+        </div>
+        <div class="toolbar-sep"></div>
+        <div class="toolbar-group">
+          <label style="font-weight:700; font-size:20px; color:var(--text-muted); white-space:nowrap;" title="指定某一天，只看那天做過的測驗">📅 歷史紀錄：</label>
+          <input type="date" id="sel-date" style="width:210px;" title="選擇日期後，清單只顯示該日期的測驗紀錄">
+          <button class="btn" id="btn-clear-history" style="display:none;" title="取消日期篩選，回到全部紀錄">← 回最新紀錄</button>
+        </div>
+        <div style="flex-grow: 1;"></div>
+        <button class="btn primary" id="btn-add-record" data-action="new">新增紀錄</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        測驗紀錄總覽
+        <span id="record-count" style="font-size:13px; color:var(--text-muted); font-weight:500;"></span>
+      </div>
+      <table class="table">
+        <thead>
+          <tr>
+            <th id="th-op" style="width:9%;">操作區塊</th>
+            <th style="width:11%;">受測者編號</th>
+            <th style="width:11%;">受測者姓名</th>
+            <th style="width:10%;">測驗項目</th>
+            <th style="width:8%;">AI 評分</th>
+            <th id="th-manual" style="width:13%;">人工評分</th>
+            <th id="th-diff" style="width:7%;">差異</th>
+            <th style="width:11%;">測驗日期</th>
+            <th style="width:10%;">測驗時間</th>
+            <th style="width:10%;">圖片檢視</th>
+          </tr>
+        </thead>
+        <tbody data-role="tbody">
+          <tr>
+            <td colspan="10" class="empty">系統資料載入中，請稍候...</td>
+          </tr>
+        </tbody>
+      </table>
+      <div id="pagination" class="pagination" style="display:none;"></div>
+    </div>
+  </div>
+
+  <dialog id="record-dialog" data-role="dialog">
+    <div class="dialog-header" id="dialog-title">新增紀錄</div>
+    <div class="dialog-body">
+      <div class="form-group" id="group-uid">
+        <label>受測者編號 (UID) <span style="color:var(--danger)">*</span></label>
+        <input type="text" data-field="userId" placeholder="請輸入測驗編號">
+      </div>
+      <div class="form-group">
+        <label>小朋友姓名</label>
+        <input type="text" data-field="name" placeholder="請輸入姓名">
+      </div>
+      <div class="form-group" id="group-birthday">
+        <label>出生日期 (將作為家長登入密碼)</label>
+        <input type="date" data-field="birthday">
+      </div>
+
+      <div id="task-fields">
+        <hr style="border: 0; border-top: 2px dashed var(--border-color); margin: 24px 0;">
+        <div class="form-group">
+          <label>選擇測驗項目</label>
+          <select data-field="level"></select>
+        </div>
+        <div class="form-group">
+          <label>進行測驗的日期</label>
+          <input type="date" data-field="test_date">
+        </div>
+        <div class="form-group">
+          <label>測驗分數：<span id="score-display" style="font-weight:700; color:var(--secondary); font-size:18px;">-1</span>
+            分</label>
+          <input type="range" data-field="score" min="-1" max="2" value="-1">
+        </div>
+      </div>
+    </div>
+    <div class="dialog-footer">
+      <button class="btn" onclick="document.getElementById('record-dialog').close()">取消返回</button>
+      <button class="btn primary" data-action="save">確認並儲存</button>
+    </div>
+  </dialog>
+
+  <dialog id="change-pwd-dialog">
+    <div class="dialog-header">修改密碼</div>
+    <div class="dialog-body">
+      <div class="form-group">
+        <label>舊密碼</label>
+        <input type="password" id="cp-old-pwd" placeholder="輸入目前密碼" autocomplete="current-password">
+      </div>
+      <div class="form-group">
+        <label>新密碼</label>
+        <div style="position:relative;">
+          <input type="password" id="cp-new-pwd" placeholder="輸入新密碼" autocomplete="new-password" style="padding-right:48px;">
+          <button type="button" id="cp-toggle-pwd" style="position:absolute; right:14px; top:50%; transform:translateY(-50%); background:none; border:none; cursor:pointer; font-size:18px; color:#C4A98A; padding:0; width:auto; box-shadow:none;">&#128065;</button>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>確認新密碼</label>
+        <input type="password" id="cp-confirm-pwd" placeholder="再輸入一次新密碼" autocomplete="new-password">
+      </div>
+      <div id="cp-msg" style="font-size:14px; min-height:20px; text-align:center;"></div>
+    </div>
+    <div class="dialog-footer">
+      <button class="btn" onclick="document.getElementById('change-pwd-dialog').close()">取消返回</button>
+      <button class="btn primary" id="cp-save">確認修改</button>
+    </div>
+  </dialog>
+
+  <dialog id="ai-advice-dialog" style="width: 90%; max-width: 800px; padding: 0; border: none; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); overflow: hidden;">
+    <div class="dialog-header" style="background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); color: white; padding: 16px 24px; font-size: 20px; font-weight: 700; display: flex; justify-content: space-between; align-items: center; border-radius: 0;">
+      <span>✨ AI 專家居家訓練建議</span>
+      <button onclick="document.getElementById('ai-advice-dialog').close()" style="background: none; border: none; color: white; font-size: 24px; cursor: pointer;">✕</button>
+    </div>
+    <div class="dialog-body" id="ai-advice-content" style="padding: 24px; max-height: 70vh; overflow-y: auto; line-height: 1.8; color: #444; background: #fff;">
+      正在與 AI 專家連線中，請稍候...
+    </div>
+    <div class="dialog-footer" style="padding: 16px 24px; border-top: 1px solid #eee; text-align: right; background: #f9f9f9;">
+      <button class="btn" onclick="document.getElementById('ai-advice-dialog').close()">關閉</button>
+    </div>
+  </dialog>
+
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="../js/admin.js"></script>
+  <script>
+    document.getElementById('btn-change-pwd').addEventListener('click', () => {
+      document.getElementById('cp-old-pwd').value = '';
+      document.getElementById('cp-new-pwd').value = '';
+      document.getElementById('cp-confirm-pwd').value = '';
+      document.getElementById('cp-msg').textContent = '';
+      document.getElementById('change-pwd-dialog').showModal();
+    });
+
+    document.getElementById('cp-toggle-pwd').addEventListener('click', () => {
+      const input = document.getElementById('cp-new-pwd');
+      const btn = document.getElementById('cp-toggle-pwd');
+      const isHidden = input.type === 'password';
+      input.type = isHidden ? 'text' : 'password';
+      btn.innerHTML = isHidden ? '&#128064;' : '&#128065;';
+    });
+
+    document.getElementById('cp-save').addEventListener('click', async () => {
+      const old_password = document.getElementById('cp-old-pwd').value.trim();
+      const new_password = document.getElementById('cp-new-pwd').value.trim();
+      const confirm_password = document.getElementById('cp-confirm-pwd').value.trim();
+      const msg = document.getElementById('cp-msg');
+
+      if (!old_password || !new_password || !confirm_password) {
+        msg.style.color = '#E57373';
+        msg.textContent = '所有欄位不可為空';
+        return;
+      }
+      if (new_password !== confirm_password) {
+        msg.style.color = '#E57373';
+        msg.textContent = '兩次輸入的新密碼不一致';
+        return;
+      }
+
+      const res = await fetch('/api/auth/update_profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ old_password, new_password }),
+        credentials: 'include'
+      });
+      const js = await res.json();
+
+      if (js.ok) {
+        msg.style.color = '#81C784';
+        msg.textContent = js.msg;
+        setTimeout(() => { location.href = '/html/admin_login.html'; }, 1200);
+      } else {
+        msg.style.color = '#E57373';
+        msg.textContent = js.msg || '修改失敗';
+      }
+    });
+  </script>
+  <script src="/js/custom-scrollbar.js"></script>
+</body>
+
+</html>

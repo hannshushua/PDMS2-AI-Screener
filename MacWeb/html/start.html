@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="zh-Hant">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>童話故事入口</title>
+
+  <!-- 提前下載背景圖、預抓故事首頁 -->
+  <link rel="preload" as="image" href="/images/fairytale1.jpg" />
+  <link rel="prefetch" href="/html/index.html" />
+
+  <!-- 分離後的樣式與腳本 -->
+  <link rel="stylesheet" href="/css/start.css" />
+  <script src="/js/start.js" defer></script>
+</head>
+
+<body>
+  <div class="bg" aria-hidden="true"></div>
+  <div class="stars" aria-hidden="true"></div>
+  <div class="glows" aria-hidden="true"></div>
+
+  <main class="wrap">
+    <section class="card" role="region" aria-labelledby="title">
+      <h1 id="title">歡迎來到童話王國</h1>
+      <p class="subtitle">沿著星光的小徑前行，新的篇章正等著你。</p>
+      <div class="uid-input">
+        <label for="uid">請輸入您的 UID：</label>
+        <input type="text" id="uid" name="uid" placeholder="ex:a012" required />
+      </div>
+      <button class="enter-btn" id="enterBtn" aria-label="進入故事（Enter）">進入故事</button>
+      <!-- <p class="hint">若未自動導向，<a href="/html/index.html">按此直接前往故事首頁</a>。</p> -->
+      <noscript>
+        <p class="hint">你的瀏覽器停用了 JavaScript，請點上方連結進入故事。</p>
+      </noscript>
+    </section>
+  </main>
+</body>
+
+</html>

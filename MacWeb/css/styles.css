@@ -1,0 +1,422 @@
+/* ========== 基本字型與色彩（童趣明亮） ========== */
+:root {
+  --bg: #fff8f2;
+  --ink: #2b2b2b;
+  --primary: #ff7ac2; /* 糖果粉 */
+  --primary-2: #ffb3d9;
+  --secondary: #7ad9ff; /* 泡泡藍 */
+  --yellow: #ffd66b;
+  --green: #66e0a3;
+  --violet: #b79cff;
+  --card: #ffffff;
+  --shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+  --radius: 22px;
+  --radius-sm: 14px;
+  --focus: 0 0 0 4px rgba(255, 122, 194, 0.25);
+}
+@font-face {
+  font-family: "BpmfGenYoGothic";
+  src: url("./BpmfGenYoGothic-R.ttf") format("truetype");
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+* {
+  box-sizing: border-box;
+}
+html,
+body {
+  height: 100%;
+}
+body {
+  margin: 0;
+  font-family: "BpmfGenYoGothic", sans-serif;
+  color: var(--ink);
+  background: radial-gradient(
+      1200px 1200px at 10% -10%,
+      #ffe9f6 10%,
+      transparent 50%
+    ),
+    radial-gradient(1200px 1200px at 110% 10%, #e6f7ff 10%, transparent 50%),
+    var(--bg);
+}
+
+/* 確保所有元素都使用 BpmfGenYoGothic 字體 */
+* {
+  font-family: "BpmfGenYoGothic", sans-serif;
+}
+
+/* ========== 童趣頂欄 ========== */
+.kidbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  backdrop-filter: saturate(120%) blur(6px);
+  background: linear-gradient(
+    0deg,
+    rgba(255, 255, 255, 0.8),
+    rgba(255, 255, 255, 0.9)
+  );
+  border-bottom: 2px dashed #ffd4ef;
+}
+.kidbar-left {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+.logo {
+  font-size: 40px;
+}
+.app-title {
+  font-size: 26px;
+  line-height: 1;
+  margin: 0;
+}
+.subtitle {
+  font-size: 14px;
+  color: #666;
+}
+.kidbar-right {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+.stars span {
+  font-size: 22px;
+  color: #ccc;
+  letter-spacing: 2px;
+}
+.stars .lit {
+  color: #ffbf1f;
+}
+
+/* ========== 主要區域 ========== */
+.playground {
+  max-width: 1100px;
+  margin: 20px auto;
+  padding: 0 14px 40px;
+}
+
+/* 章節大貼紙（給孩子點的大圖示） */
+.sticker-rail {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(140px, 1fr));
+  gap: 12px;
+  margin-bottom: 18px;
+}
+.sticker {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 10px;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(160deg, #fff, #fef6ff);
+  border: 3px solid #ffd4ef;
+  box-shadow: var(--shadow);
+  cursor: pointer;
+  user-select: none;
+}
+.sticker .emoji {
+  font-size: 36px;
+}
+.sticker .caption {
+  font-weight: 700;
+  text-align: center;
+}
+.sticker.active {
+  border-color: var(--primary);
+  transform: translateY(-2px);
+}
+.sticker:focus-visible {
+  outline: none;
+  box-shadow: var(--focus);
+}
+
+/* 故事卡片（大圖 + 大字 + 大按鈕） */
+.story-card {
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  gap: 14px;
+  background: var(--card);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 18px;
+  margin-bottom: 16px;
+  border: 3px solid #e9e1ff;
+}
+.story-emoji {
+  font-size: 80px;
+  display: grid;
+  place-items: center;
+}
+.story-title {
+  margin: 8px 0 6px;
+  font-size: 24px;
+}
+.story-intro {
+  margin: 0;
+  font-size: 18px;
+  line-height: 1.5;
+}
+/* 讓按鈕列跨兩欄，固定在故事卡底部置中 */
+.kid-actions {
+  grid-column: 1 / -1; /* ← 跨越兩欄 */
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+/* 任務卡（大積木） */
+.tasks-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+}
+.task-card {
+  display: grid;
+  grid-template-columns: 86px 1fr;
+  gap: 10px;
+  background: var(--card);
+  border-radius: var(--radius);
+  border: 3px solid #cfefff;
+  box-shadow: var(--shadow);
+  padding: 14px;
+}
+.task-icon {
+  font-size: 56px;
+  display: grid;
+  place-items: center;
+}
+.task-title {
+  margin: 6px 0 4px;
+  font-size: 20px;
+}
+.task-note {
+  margin: 0;
+  color: #555;
+}
+.task-ops {
+  display: flex;
+  gap: 10px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+
+/* 小老師模式（管理） */
+.admin {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  width: 320px;
+  background: #fff;
+  border-radius: 18px;
+  box-shadow: var(--shadow);
+  border: 2px dashed #ffd4ef;
+  padding: 14px;
+}
+.admin-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+.admin-block + .admin-block {
+  margin-top: 12px;
+}
+.label {
+  font-size: 13px;
+  color: #666;
+  margin-bottom: 6px;
+  display: block;
+}
+.input {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 2px solid #ffd4ef;
+  outline: none;
+  font-family: "BpmfGenYoGothic", sans-serif;
+}
+.input:focus {
+  box-shadow: var(--focus);
+}
+.admin-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 260px;
+  overflow: auto;
+}
+.admin-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border: 2px solid #eee;
+  border-radius: 12px;
+  padding: 8px 10px;
+}
+.admin-item .mini {
+  font-size: 12px;
+  color: #666;
+}
+
+/* 按鈕 */
+.btn {
+  border: 0;
+  border-radius: 14px;
+  padding: 10px 14px;
+  cursor: pointer;
+  font-weight: 700;
+  font-family: "BpmfGenYoGothic", sans-serif;
+}
+.btn.pill {
+  border-radius: 999px;
+}
+.btn.big {
+  font-size: 16px;
+}
+.btn.fat {
+  font-size: 18px;
+  height: 56px;
+  min-width: 120px;
+}
+.btn.primary {
+  background: linear-gradient(180deg, var(--primary), var(--primary-2));
+  color: #fff;
+}
+.btn.secondary {
+  background: linear-gradient(180deg, var(--secondary), #b0ebff);
+  color: #103244;
+}
+.btn.ghost {
+  background: #fff;
+  border: 3px dashed #ffd4ef;
+}
+.btn.danger {
+  background: #ff8080;
+  color: #fff;
+}
+.btn.full {
+  width: 100%;
+}
+.btn:focus-visible {
+  outline: none;
+  box-shadow: var(--focus);
+}
+
+/* 旁白按鈕 hover 小動畫 */
+.btn:hover {
+  transform: translateY(-1px);
+}
+
+/* 彩紙（簡單 confetti） */
+.confetti {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  display: none;
+}
+.confetti.active {
+  display: block;
+}
+.confetti span {
+  position: absolute;
+  font-size: 26px;
+  animation: fall 1000ms ease-out forwards;
+}
+@keyframes fall {
+  to {
+    transform: translateY(100vh) rotate(360deg);
+    opacity: 0;
+  }
+}
+
+/* RWD */
+@media (max-width: 760px) {
+  .story-card {
+    grid-template-columns: 80px 1fr;
+  }
+  .story-emoji {
+    font-size: 56px;
+  }
+  .task-card {
+    grid-template-columns: 70px 1fr;
+  }
+}
+
+
+/* 停止朗讀按鈕：紅底白字 */
+#stopBtn {
+  background-color: #e74c3c; /* 紅色 */
+  color: #fff; /* 白字 */
+  border: none;
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 1rem;
+  cursor: pointer;
+  font-weight: bold;
+  font-family: "BpmfGenYoGothic", sans-serif;
+  transition: background-color 0.2s;
+}
+
+#stopBtn:hover {
+  background-color: #c0392b; /* 滑鼠移上去深紅 */
+}
+
+/* confetti 彩紙 */
+.confetti-piece {
+  position: absolute;
+  width: 10px;
+  height: 18px;
+  border-radius: 4px;
+  opacity: 0.9;
+}
+
+/* ========= 圖示基本樣式（全部改用 PNG） ========= */
+
+/* 共用：icon 容器都置中 */
+#storyEmoji,
+.sticker .emoji,
+.task-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 預設 icon：寬度跟著容器走，不再寫死 800px 那種超大值 */
+.icon-img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;  /* 保持比例，不會被拉扁 */
+}
+
+/* ---- 頂端「第 1 關～第 5 關」貼紙 ---- */
+.sticker {
+  position: relative;
+  overflow: hidden;      /* ← 超出去的圖示直接被剪掉，不會蓋到旁邊 */
+}
+
+.sticker .emoji {
+  width: 120px;          /* 貼紙裡的圖示容器大小（你可以再微調） */
+  height: 120px;
+}
+
+/* ---- 中間故事卡片的大圖示（左邊那顆） ---- */
+#storyEmoji {
+  width: 120px;
+  height: 120px;
+}
+
+/* ---- 下方每張任務卡片裡的圖示 ---- */
+.task-icon {
+  width: 90px;
+  height: 90px;
+}
+

@@ -1,0 +1,956 @@
+/* ══════════════════════════════════════════════════════════════════════
+   妙妙屋 —— 注音符號教室掛圖
+   整個畫面是一張掛圖：墨黑格線切格，每格一張圖、一個詞、一個注音。
+   沒有漸層、沒有發光、沒有投影。可以按的東西只有墨黑實心塊，按下反白。
+   關卡色只標示「你在哪一關」，永遠不上按鈕。完成＝紅色印泥圓章。
+   ══════════════════════════════════════════════════════════════════════ */
+
+/* 注音粉圓：ButTaiwan「源泉注音圓體 粗」依孩子頁用字裁切（OFL：修改版改名）；授權見 css/fonts/ */
+@font-face {
+  font-family: "FMAS GenSen Bpmf";
+  src: url("fonts/fmas-gensen-bpmf.woff2?v=3") format("woff2"),
+       url("fonts/fmas-gensen-bpmf.woff?v=3") format("woff");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  /* 紙與墨 */
+  --paper:      #FBFBF8;
+  --paper-dim:  #EDECE6;
+  --ink:        #1D1C1A;
+  --ink-soft:   #5B5953;
+  --ink-hover:  #3A3834;
+
+  /* 格線 */
+  --rule:       3px;
+  --rule-heavy: 4px;
+
+  /* 五關的平塗印刷色；-on 是壓在色塊上的字色，-tint 是平塗淡底 */
+  --ch1: #C92F25; --ch1-on: #FFFFFF; --ch1-tint: #F4DEDA;
+  --ch2: #F2B705; --ch2-on: #1D1C1A; --ch2-tint: #FAF1D6;
+  --ch3: #17804A; --ch3-on: #FFFFFF; --ch3-tint: #DBEAE0;
+  --ch4: #2447B0; --ch4-on: #FFFFFF; --ch4-tint: #DDE2EE;
+  --ch5: #6D3BA5; --ch5-on: #FFFFFF; --ch5-tint: #E7E0EC;
+
+  /* 目前這一關，由 JS 依章節改寫 */
+  --accent:      var(--ch1);
+  --accent-on:   var(--ch1-on);
+  --accent-tint: var(--ch1-tint);
+  --accent-bg:   var(--accent-tint); /* 舊名稱，保留給仍在引用的地方 */
+
+  /* 只屬於一件事的顏色 */
+  --stamp: #BF1330;  /* 印泥：只給「完成」章與危險操作 */
+  --rec:   #C8006A;  /* 錄影中：相機頁專用，其他地方不准出現 */
+
+  /* 字 */
+  --font:      "PingFang TC", "Microsoft JhengHei UI", "Microsoft JhengHei", "Noto Sans TC", sans-serif;   /* 大人用文字：系統內建黑體（不再向 Google Fonts 下載） */
+  --font-kid:  "FMAS GenSen Bpmf", "PingFang TC", "Microsoft JhengHei UI", "Microsoft JhengHei", "Noto Sans TC", sans-serif;  /* 孩子看的字：圓體＋注音 */
+  --font-kai:  var(--font-kid);
+  --font-stamp:"BiauKai", "DFKai-SB", "標楷體", "Kaiti TC", "Noto Sans TC", serif;    /* 印章字：不帶注音 */
+  --font-read: var(--font-kid);
+
+  --r-btn: 6px;
+
+  /* 圖示：同一筆畫粗細，以遮罩上色，跟著文字顏色走 */
+  --i-play:   url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M7 4.8v14.4a1 1 0 0 0 1.5.86l11.3-7.2a1 1 0 0 0 0-1.72L8.5 3.94A1 1 0 0 0 7 4.8z'/%3E%3C/svg%3E");
+  --i-check:  url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4.5 12.5l5 5 10-11'/%3E%3C/svg%3E");
+  --i-left:   url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M19.5 12H5M11 5.5L4.5 12l6.5 6.5'/%3E%3C/svg%3E");
+  --i-right:  url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4.5 12H19M13 5.5l6.5 6.5-6.5 6.5'/%3E%3C/svg%3E");
+  --i-sound:  url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3.8 9.4h3.6l4.8-4v13.2l-4.8-4H3.8z' fill='black'/%3E%3Cpath d='M15.6 9a4.4 4.4 0 0 1 0 6M18.6 6.2a8.4 8.4 0 0 1 0 11.6'/%3E%3C/svg%3E");
+  --i-pause:  url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect x='6' y='5' width='4.2' height='14' rx='1'/%3E%3Crect x='13.8' y='5' width='4.2' height='14' rx='1'/%3E%3C/svg%3E");
+  --i-stop:   url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect x='5.5' y='5.5' width='13' height='13' rx='1.5'/%3E%3C/svg%3E");
+  --i-camera: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linejoin='round'%3E%3Cpath d='M3.5 8h3.8l1.7-2.6h6l1.7 2.6h3.8v11.2h-17z'/%3E%3Ccircle cx='12' cy='13.4' r='3.6'/%3E%3C/svg%3E");
+  --i-rec:    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ccircle cx='12' cy='12' r='7'/%3E%3C/svg%3E");
+  --i-target: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='8'/%3E%3Ccircle cx='12' cy='12' r='3.2'/%3E%3Cpath d='M12 1.8v4M12 18.2v4M1.8 12h4M18.2 12h4'/%3E%3C/svg%3E");
+  --i-refresh: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M19.5 11a7.5 7.5 0 1 0-2.2 5.6'/%3E%3Cpath d='M19.8 4.5v6.3h-6.3'/%3E%3C/svg%3E");
+  --i-eye: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12z'/%3E%3Ccircle cx='12' cy='12' r='3'/%3E%3C/svg%3E");
+  --i-crop: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6.5 2.5v15h15'/%3E%3Cpath d='M2.5 6.5h15v15'/%3E%3C/svg%3E");
+  --i-save: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 4h12.5L20 7.5V20H4z'/%3E%3Cpath d='M8 4v5h7V4'/%3E%3Cpath d='M7.5 20v-6h9v6'/%3E%3C/svg%3E");
+  --i-swap: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 8h14.5M14.5 4l4 4-4 4'/%3E%3Cpath d='M20 16H5.5M9.5 12l-4 4 4 4'/%3E%3C/svg%3E");
+  --i-gear: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='3.2'/%3E%3Cpath d='M12 2.8v3M12 18.2v3M2.8 12h3M18.2 12h3M5.5 5.5l2.1 2.1M16.4 16.4l2.1 2.1M5.5 18.5l2.1-2.1M16.4 7.6l2.1-2.1'/%3E%3C/svg%3E");
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  height: 100vh;
+  height: 100dvh;
+  overflow: auto;
+  margin: 0;
+  color: var(--ink);
+  background: var(--paper);
+  font-family: var(--font-kid);   /* 孩子頁預設全帶注音；大人頁（設定頁）用 body.adult 換回一般黑體 */
+  display: flex;
+  flex-direction: column;
+  -webkit-tap-highlight-color: transparent;
+}
+
+button, input, select, textarea { font-family: inherit; }
+
+/* 大人用的地方：不帶注音的一般黑體 */
+body.adult,
+.admin,
+#toggleAdmin { font-family: var(--font); }
+
+::selection { background: var(--accent-tint); color: var(--ink); }
+
+/* ══════════ 圖示（遮罩上色） ══════════ */
+[data-icon]::before,
+[data-icon-after]::after {
+  content: "";
+  flex: 0 0 auto;
+  width: 1.1em;
+  height: 1.1em;
+  background: currentColor;
+  -webkit-mask: var(--icon) center / contain no-repeat;
+          mask: var(--icon) center / contain no-repeat;
+}
+[data-icon="play"]         { --icon: var(--i-play); }
+[data-icon="check"]        { --icon: var(--i-check); }
+[data-icon="left"]         { --icon: var(--i-left); }
+[data-icon-after="right"]  { --icon: var(--i-right); }
+[data-icon="sound"]        { --icon: var(--i-sound); }
+[data-icon="stop"]         { --icon: var(--i-stop); }
+[data-icon="camera"]       { --icon: var(--i-camera); }
+[data-icon="rec"]          { --icon: var(--i-rec); }
+[data-icon="target"]     { --icon: var(--i-target); }
+[data-icon="refresh"]    { --icon: var(--i-refresh); }
+[data-icon="eye"]        { --icon: var(--i-eye); }
+[data-icon="crop"]       { --icon: var(--i-crop); }
+[data-icon="save"]       { --icon: var(--i-save); }
+[data-icon="swap"]       { --icon: var(--i-swap); }
+[data-icon="gear"]       { --icon: var(--i-gear); }
+.btn.is-playing[data-icon="sound"] { --icon: var(--i-pause); }
+
+/* ══════════ 按鈕：墨黑實心塊與描邊，按下反白 ══════════ */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 48px;
+  padding: 10px 18px;
+  border: var(--rule) solid var(--ink);
+  border-radius: var(--r-btn);
+  background: var(--paper);
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: 0.04em;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+  transition: background-color .12s ease-out, color .12s ease-out, border-color .12s ease-out;
+}
+.btn:active { background: var(--ink); color: var(--paper); }
+.btn:focus-visible { outline: var(--rule) solid var(--ink); outline-offset: 3px; }
+.btn:disabled,
+.btn[aria-disabled="true"] {
+  cursor: not-allowed;
+  color: #9C9A93;
+  border-color: #B9B7B0;
+  background: var(--paper);
+}
+
+.btn.primary { background: var(--ink); color: var(--paper); }
+.btn.primary:active { background: var(--paper); color: var(--ink); }
+.btn.primary:disabled { background: #B9B7B0; border-color: #B9B7B0; color: var(--paper); }
+
+.btn.secondary { /* 描邊：與基本款相同，留著給既有標記 */ }
+
+.btn.ghost { border-width: 2px; }
+
+.btn.danger { border-color: var(--stamp); color: var(--stamp); }
+.btn.danger:active { background: var(--stamp); color: var(--paper); }
+
+.btn.pill { /* 掛圖裡沒有膠囊；保留類名相容 */ }
+.btn.big  { font-size: 16px; }
+.btn.fat  { min-height: 52px; padding: 12px 22px; font-size: 18px; }
+.btn.full { width: 100%; }
+
+/* ══════════ 標題列：掛圖的抬頭 ══════════ */
+.kidbar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 84px;
+  padding: 8px max(20px, env(safe-area-inset-right)) 8px max(20px, env(safe-area-inset-left));
+  background: var(--paper);
+  border-bottom: var(--rule-heavy) solid var(--ink);
+  position: relative;
+  z-index: 50;
+}
+.kidbar-left, .kidbar-right { display: flex; align-items: center; gap: 12px; min-width: 0; }
+
+/* 標記：一格掛圖，寫著妙妙屋的「ㄇ」 */
+.logo {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  background: var(--accent);
+  color: var(--accent-on);
+  border: var(--rule) solid var(--ink);
+  font-family: var(--font);
+  font-size: 24px;
+  font-weight: 900;
+  line-height: 1;
+  transition: background-color .2s ease-out, color .2s ease-out;
+}
+
+.app-title {
+  margin: 0;
+  font-family: var(--font-kai);
+  font-size: 26px;
+  font-weight: normal;
+  line-height: 1.3;
+  color: var(--ink);
+}
+.app-title { line-height: 1.45; }
+.subtitle { margin: 4px 0 0; font-size: 16px; font-weight: normal; line-height: 1.5; color: var(--ink-soft); }
+
+/* 換人玩：小描邊鈕，注音撐高行距 */
+.btn.switch-btn {
+  min-height: 40px;
+  padding: 2px 12px;
+  border-width: 2px;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.5;
+  flex-shrink: 0;
+}
+.switch-btn ruby { display: inline; }
+.switch-btn rt   { font-size: 9px; font-weight: 500; color: var(--ink-soft); }
+.btn.switch-btn:active rt { color: var(--paper); }
+
+/* 集點圈：五個空圈，做完一部分就蓋上印泥 */
+.stars { display: flex; align-items: center; gap: 6px; }
+.stars span {
+  display: block;
+  width: 24px;
+  height: 24px;
+  border: 2.5px solid var(--ink);
+  border-radius: 50%;
+  background: var(--paper);
+  font-size: 0;
+  transition: background-color .2s ease-out, border-color .2s ease-out;
+}
+.stars .lit {
+  background: var(--stamp);
+  border-color: var(--stamp);
+  box-shadow: inset 0 0 0 3px var(--paper);
+}
+
+/* ══════════ 掛圖本體：格線由墨黑底色從縫隙透出來 ══════════ */
+.playground {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: var(--rule-heavy);
+  padding: 0 env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  background: var(--ink);
+}
+
+/* ── 關卡分頁：五格一列 ── */
+.sticker-rail {
+  flex-shrink: 0;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: var(--rule);
+  background: var(--ink);
+}
+
+.sticker {
+  --c: var(--ch1); --c-on: var(--ch1-on); --c-tint: var(--ch1-tint);
+  position: relative;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  padding: 12px 16px 12px;
+  border: 0;
+  border-top: 10px solid var(--c);
+  border-radius: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: inherit;   /* 孩子頁的注音字型：「第 N 關」也帶注音 */
+  text-align: left;
+  cursor: pointer;
+  user-select: none;
+  transition: background-color .15s ease-out, color .15s ease-out;
+}
+.sticker:nth-child(1) { --c: var(--ch1); --c-on: var(--ch1-on); --c-tint: var(--ch1-tint); }
+.sticker:nth-child(2) { --c: var(--ch2); --c-on: var(--ch2-on); --c-tint: var(--ch2-tint); }
+.sticker:nth-child(3) { --c: var(--ch3); --c-on: var(--ch3-on); --c-tint: var(--ch3-tint); }
+.sticker:nth-child(4) { --c: var(--ch4); --c-on: var(--ch4-on); --c-tint: var(--ch4-tint); }
+.sticker:nth-child(5) { --c: var(--ch5); --c-on: var(--ch5-on); --c-tint: var(--ch5-tint); }
+
+/* 目前這一關：整格填滿關卡色；下方格線保留，不與序號色格黏成一塊 */
+.sticker.active {
+  background: var(--c);
+  color: var(--c-on);
+}
+.sticker.active .cap-sub { color: var(--c-on); }
+.sticker:active { background: var(--ink); color: var(--paper); }
+.sticker:active .cap-sub { color: var(--paper); }
+.sticker:focus-visible { outline: var(--rule) solid var(--ink); outline-offset: -8px; }
+
+.sticker .emoji {
+  flex: 0 0 auto;
+  width: 60px;
+  height: 60px;
+  display: grid;
+  place-items: center;
+  background: var(--paper);
+  border: 2px solid var(--ink);
+}
+.sticker .caption { min-width: 0; line-height: 1.3; }
+.sticker .cap-num { font-size: 18px; font-weight: normal; }
+.sticker .cap-sub {
+  font-family: var(--font-kai);
+  font-size: 17px;
+  font-weight: normal;
+  line-height: 1.5;
+  color: var(--ink);
+}
+
+/* ── 關卡標題列：掛圖的一格 —— 序號色格｜圖｜詞 ── */
+.story-card {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 14px 20px 14px 0;
+  background: var(--accent-tint);
+  transition: background-color .2s ease-out;
+}
+.story-card::before {
+  content: attr(data-chapter);
+  flex: 0 0 auto;
+  align-self: stretch;
+  display: grid;
+  place-items: center;
+  width: 84px;
+  margin: -14px 0;
+  background: var(--accent);
+  color: var(--accent-on);
+  border-right: var(--rule) solid var(--ink);
+  font-size: 52px;
+  font-weight: 900;
+  line-height: 1;
+  transition: background-color .2s ease-out, color .2s ease-out;
+}
+#storyEmoji {
+  flex: 0 0 76px;
+  width: 76px;
+  height: 76px;
+  display: grid;
+  place-items: center;
+  background: var(--paper);
+  border: var(--rule) solid var(--ink);
+  overflow: hidden;
+}
+.story-text { flex: 1; min-width: 0; }
+.story-title {
+  margin: 0 0 2px;
+  font-family: var(--font-kai);
+  font-size: 30px;
+  font-weight: normal;
+  line-height: 1.4;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.story-intro {
+  margin: 0;
+  font-size: 19px;
+  color: var(--ink);
+  overflow: hidden;
+}
+.kid-actions { flex: 0 0 auto; display: flex; gap: 10px; }
+.kid-actions .btn { min-height: 52px; padding: 10px 20px; font-size: 17px; }
+
+/* ── 任務格：共用格線，不再是浮起來的卡片 ── */
+.tasks-grid {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));   /* JS 依任務數與寬度覆寫 */
+  grid-auto-rows: minmax(300px, 1fr);
+  gap: var(--rule);
+  background: var(--ink);
+  overflow-y: auto;
+  overflow-x: hidden;
+  counter-reset: task;
+}
+
+.task-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  background: var(--paper);
+  counter-increment: task;
+  overflow: hidden;
+}
+
+/* 圖：平塗淡底上放插圖，左上角是序號色格 */
+.task-icon {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  /* flex 而非 grid：圖片的百分比高度要能對到這一格的高度，否則大螢幕會被裁切 */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 12px 8px;
+  background: var(--accent-tint);
+  border-bottom: var(--rule) solid var(--ink);
+  overflow: hidden;
+  transition: background-color .2s ease-out;
+}
+.task-icon::before {
+  content: counter(task);
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  background: var(--accent);
+  color: var(--accent-on);
+  border-right: var(--rule) solid var(--ink);
+  border-bottom: var(--rule) solid var(--ink);
+  font-size: 24px;
+  font-weight: 900;
+  line-height: 1;
+  z-index: 1;
+}
+.task-icon .icon-img { display: block; width: 100%; height: 100%; object-fit: contain; }
+
+/* 插圖通用：分頁與關卡標題列的小格裡不得撐出格子 */
+.icon-img { display: block; max-width: 100%; max-height: 100%; object-fit: contain; }
+.sticker .emoji .icon-img,
+#storyEmoji .icon-img { width: 100%; height: 100%; padding: 4px; }
+
+.task-body {
+  flex: 0 0 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 14px 14px;
+}
+/* 任務名稱：動作大字、故事小字，都帶注音，永不截斷 */
+.task-title {
+  flex-shrink: 0;
+  margin: 0;
+  font-family: var(--font-kai);
+  font-weight: normal;
+}
+.task-title { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 12px; }
+.task-verb  { font-size: 1.8rem; line-height: 1.45; color: var(--ink); }
+.task-story { font-size: 1.15rem; line-height: 1.6; color: var(--ink-soft); }
+
+.task-ops { display: flex; flex-direction: row; flex-shrink: 0; gap: 8px; }
+.task-ops .btn { min-height: 58px; font-size: 1.3rem; }
+.task-ops .start-btn { flex: 1.6 1 0; background: var(--ink); color: var(--paper); }
+.task-ops .start-btn:active { background: var(--paper); color: var(--ink); }
+.task-ops .done-btn { flex: 1 1 0; border-width: 2px; font-size: 1.1rem; }
+
+/* 做完：原地蓋章，位置不動，印記一直留著 */
+.task-card.is-done .done-btn { border-color: var(--stamp); color: var(--stamp); }
+.task-card.is-done .done-btn:active { background: var(--stamp); color: var(--paper); }
+
+.stamp {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 104px;
+  height: 104px;
+  color: var(--stamp);
+  transform: rotate(-14deg);
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  z-index: 2;
+}
+.task-card.is-done .stamp { opacity: 1; visibility: visible; }
+.stamp text {
+  font-family: var(--font-stamp);
+  font-weight: 700;
+  fill: currentColor;
+}
+
+/* 簽名互動：蓋章的那一下 */
+.task-card.just-stamped .stamp { animation: stamp-hit .34s cubic-bezier(.16, 1, .3, 1) both; }
+.task-card.just-stamped { animation: cell-thud .34s cubic-bezier(.16, 1, .3, 1) both; }
+@keyframes stamp-hit {
+  0%   { opacity: 0; transform: scale(1.9) rotate(-4deg); }
+  55%  { opacity: 1; transform: scale(0.93) rotate(-15deg); }
+  100% { opacity: 1; transform: scale(1) rotate(-14deg); }
+}
+@keyframes cell-thud {
+  0%, 40% { background: var(--paper); }
+  55%     { background: var(--paper-dim); }
+  100%    { background: var(--paper); }
+}
+
+/* 彩紙退場：慶祝由印章承擔 */
+.confetti, .confetti.active { display: none; }
+
+/* ══════════ 小老師面板：大人的欄位，墨框硬邊 ══════════ */
+.admin {
+  position: fixed;
+  right: max(14px, env(safe-area-inset-right));
+  bottom: max(14px, env(safe-area-inset-bottom));
+  width: 300px;
+  background: var(--paper);
+  border: var(--rule-heavy) solid var(--ink);
+  z-index: 100;
+}
+.admin-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 8px 8px 14px;
+  background: var(--ink);
+  color: var(--paper);
+}
+.admin-head h3 { margin: 0; font-size: 16px; font-weight: 900; letter-spacing: 0.08em; }
+.admin-head .btn { min-height: 38px; padding: 4px 12px; border-color: var(--paper); background: var(--ink); color: var(--paper); font-size: 14px; }
+.admin-head .btn:active { background: var(--paper); color: var(--ink); }
+.admin-block { padding: 12px 14px; }
+.admin-block + .admin-block { border-top: 2px solid var(--ink); }
+.label { display: block; margin-bottom: 6px; font-size: 13px; font-weight: 700; color: var(--ink-soft); letter-spacing: 0.04em; }
+.input {
+  width: 100%;
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 2px solid var(--ink);
+  border-radius: 4px;
+  background: var(--paper);
+  color: var(--ink);
+  font-size: 16px;
+  font-weight: 500;
+  outline: none;
+}
+.input::placeholder { color: #6B6963; }
+.input:focus-visible { outline: var(--rule) solid var(--accent); outline-offset: 2px; }
+.admin-list { display: flex; flex-direction: column; max-height: 220px; overflow: auto; border: 2px solid var(--ink); }
+.admin-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 6px 10px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.admin-item + .admin-item { border-top: 2px solid var(--ink); }
+.admin-item:active { background: var(--ink); color: var(--paper); }
+.admin-item .mini { font-size: 13px; font-variant-numeric: tabular-nums; color: var(--ink-soft); }
+.admin-item:active .mini { color: var(--paper); }
+
+/* ══════════ task.html：左影片右步驟，一樣是掛圖的兩格 ══════════ */
+body.task-page {
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.task-split {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: row;
+  gap: var(--rule-heavy);
+  background: var(--ink);
+  overflow: hidden;
+  padding: 0 env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+
+.task-left {
+  --pad: 18px;
+  flex: 0 0 60%;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--pad);
+  background: var(--accent-tint);
+  container-type: size;   /* 讓影片以這一格的實際高度為上限 */
+}
+/* 墨框貼著影片或圖片本身，不框一大片空白紙 */
+.task-illustration {
+  width: fit-content;
+  max-width: 100%;
+  margin: 0;
+  background: var(--paper);
+  border: var(--rule) solid var(--ink);
+  line-height: 0;
+  overflow: hidden;
+}
+/* 依長寬比放到最大：寬度取「欄寬」與「欄高 × 長寬比」較小者。
+   cqw／cqh 是 .task-left 內容框（已扣掉內距）的尺寸，只需再扣掉墨框。 */
+.task-illustration video,
+.task-illustration img {
+  display: block;
+  width: min(100cqw - var(--rule) * 2, (100cqh - var(--rule) * 2) * var(--media-ar, 1.7778));
+  height: auto;
+  object-fit: contain;
+}
+
+.task-right {
+  flex: 1 1 40%;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--paper);
+  overflow: hidden;
+}
+
+.task-head {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 20px;
+  border-bottom: var(--rule) solid var(--ink);
+}
+.task-emoji {
+  flex: 0 0 76px;
+  width: 76px;
+  height: 76px;
+  display: grid;
+  place-items: center;
+  background: var(--accent-tint);
+  border: var(--rule) solid var(--ink);
+}
+.task-emoji svg { width: 44px; height: 44px; }
+.task-emoji img { width: 100%; height: 100%; object-fit: contain; padding: 3px; }
+body.task-page .task-title { margin: 0 0 2px; }
+body.task-page .task-verb  { font-size: 30px; }
+body.task-page .task-story { font-size: 20px; }
+body.task-page .task-desc  { margin: 0; font-size: 18px; color: var(--ink); }
+body.task-page #desc { line-height: 1.8; }
+
+.task-steps {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 16px 20px;
+}
+.task-steps h3 {
+  margin: 0 0 12px;
+  font-size: 18px;
+  font-weight: normal;
+  color: var(--ink-soft);
+}
+.task-steps ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: step;
+  border: var(--rule) solid var(--ink);
+}
+.task-steps ol li {
+  counter-increment: step;
+  position: relative;
+  min-height: 60px;
+  padding: 12px 16px 12px 70px;
+  font-size: 1.4rem;
+  color: var(--ink);
+  background: var(--paper);
+}
+.task-steps ol li + li { border-top: 2px solid var(--ink); }
+.task-steps ol li::before {
+  content: counter(step);
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 54px;
+  display: grid;
+  place-items: center;
+  background: var(--accent);
+  color: var(--accent-on);
+  border-right: var(--rule) solid var(--ink);
+  font-family: var(--font);
+  font-size: 24px;
+  font-weight: 900;
+}
+body.task-page .task-steps ol li { line-height: 1.8; }
+
+.task-steps .hint { margin: 12px 0 0; }
+
+.task-actions {
+  flex-shrink: 0;
+  display: flex;
+  gap: 12px;
+  padding: 14px 20px 18px;
+  border-top: var(--rule) solid var(--ink);
+}
+body.task-page .task-actions .btn { flex: 1; min-height: 64px; font-size: 20px; }
+
+.hint { margin-top: 6px; font-size: 18px; font-weight: normal; line-height: 2; color: var(--ink); }
+
+/* ══════════ 注音：孩子要唸的敘述文字（黑體注音） ══════════ */
+.story-intro,
+.task-desc,
+.task-steps ol li,
+#desc {
+  font-family: var(--font-read);
+  font-weight: normal;
+  line-height: 2.2;
+}
+
+/* 孩子會按的按鈕也帶注音（黑體注音，瀏覽器加粗） */
+.task-ops .btn,
+.kid-actions .btn,
+#ttsBtn,
+.btn.switch-btn,
+body.task-page .kidbar .btn,
+.task-actions .btn,
+.bottom-bar .btn {
+  font-family: var(--font-kid);
+  font-weight: normal;
+  letter-spacing: 0;
+}
+
+/* ══════════ 旁白播放中：反白，不再發光脈衝 ══════════ */
+.btn.is-playing { background: var(--ink); color: var(--paper); }
+
+/* ══════════ 捲軸：只留一條 ══════════
+   觸控用的大捲軸由 js/custom-scrollbar.js 畫（方角、墨框、關卡色握把），
+   原生捲軸一律隱藏，避免同時出現兩條。 */
+* { scrollbar-width: none; }
+*::-webkit-scrollbar { width: 0; height: 0; }
+
+
+/* ══════════════════════════════════════════════════════════════════════
+   裝置適應層
+   施測裝置從 iPad 橫向（1024×768）到桌機 1920×1080。孩子側不整頁捲動，
+   所以斷點先看還剩多高，寬度斷點只負責抬頭與分頁的緊縮。
+   ══════════════════════════════════════════════════════════════════════ */
+
+/* ── 有滑鼠才有 hover：觸控上點過會停在 hover 不退 ── */
+@media (hover: hover) and (pointer: fine) {
+  .btn:hover:not(:disabled)          { background: var(--paper-dim); }
+  .btn.primary:hover:not(:disabled)  { background: var(--ink-hover); border-color: var(--ink-hover); }
+  .btn.danger:hover:not(:disabled)   { background: #F7E0E2; }   /* 印泥紅的淡色，不借關卡色 */
+  .btn.is-playing:hover              { background: var(--ink-hover); }
+  .task-ops .start-btn:hover         { background: var(--ink-hover); border-color: var(--ink-hover); }
+  .sticker:not(.active):hover        { background: var(--c-tint); }
+  .admin-item:hover                  { background: var(--paper-dim); }
+  .admin-head .btn:hover             { background: var(--ink-hover); }
+}
+
+/* ── 平板橫向 / 窄筆電 ── */
+@media (max-width: 1180px) {
+  .kidbar { min-height: 64px; gap: 10px; }
+  .kidbar-left, .kidbar-right { gap: 8px; }
+  .logo { width: 36px; height: 36px; font-size: 20px; }
+  .app-title { font-size: 21px; }
+  .subtitle { display: none; }
+  .stars span { width: 20px; height: 20px; }
+
+  .sticker { gap: 8px; padding: 8px 10px; border-top-width: 8px; }
+  .sticker .emoji { width: 46px; height: 46px; }
+  .sticker .cap-num { font-size: 16px; }
+  .sticker { padding: 8px 8px; gap: 6px; }
+  .sticker .emoji { width: 34px; height: 34px; }
+  .sticker .cap-sub { font-size: 16px; white-space: nowrap; }
+
+  .story-card { gap: 14px; padding: 10px 16px 10px 0; }
+  .story-card::before { width: 68px; margin: -10px 0; font-size: 42px; }
+  #storyEmoji { flex-basis: 60px; width: 60px; height: 60px; }
+  .story-title { font-size: 23px; }
+  .story-intro { font-size: 18px; line-height: 1.9; }
+  .kid-actions .btn { padding: 8px 14px; font-size: 15px; }
+}
+
+/* 任務頁標題區：平板寬度下改上下排 */
+@media (max-width: 1180px) {
+  .task-head { flex-direction: column; align-items: flex-start; gap: 8px; }
+  .task-emoji { flex-basis: auto; width: 52px; height: 52px; }
+  body.task-page .task-verb  { font-size: 26px; }
+  body.task-page .task-story { font-size: 18px; }
+}
+
+/* ── 視窗被拉得很窄：分頁改直式 ── */
+@media (max-width: 900px) {
+  .logo { display: none; }
+  .app-title { font-size: 18px; }
+  .sticker { flex-direction: column; justify-content: center; gap: 4px; padding: 6px 4px; text-align: center; }
+  .sticker .emoji { width: 36px; height: 36px; }
+  .sticker .caption { text-align: center; }
+  .sticker .cap-num { font-size: 13px; }
+  .sticker .cap-sub { font-size: 11px; }
+  .story-card::before { width: 56px; font-size: 34px; }
+}
+
+/* ── 寬但矮（1440×810 之類）：寬度斷點不觸發，分頁由這裡壓縮 ── */
+@media (max-height: 960px) and (min-width: 1181px) {
+  .sticker { padding: 10px 14px; }
+  .sticker .emoji { width: 50px; height: 50px; }
+}
+
+/* ── 短螢幕（iPad 橫向 768、多數筆電）：任務格轉橫式 ──
+   直式格一列要約 340px 高插圖才看得清楚，視窗低於 960 就放不下兩列；
+   橫式同樣的內容約 190px 高。 */
+@media (max-height: 960px) {
+  .story-card { padding-top: 10px; padding-bottom: 10px; }
+  .story-card::before { margin: -10px 0; }
+  #storyEmoji { flex-basis: 56px; width: 56px; height: 56px; }
+  .story-title { font-size: 22px; }
+  .story-intro { font-size: 18px; line-height: 1.8; }
+
+  .tasks-grid { grid-auto-rows: minmax(220px, 1fr); }
+
+  /* 任務格維持「插圖在上」：只縮字級與按鈕，把高度都留給插圖 */
+  .task-icon::before { width: 38px; height: 38px; font-size: 21px; }
+  .task-body { gap: 6px; padding: 8px 12px 10px; }
+  .task-verb  { font-size: 1.5rem; }
+  .task-story { font-size: 1.125rem; }
+  .task-ops .btn { min-height: 50px; padding: 6px 10px; font-size: 1.15rem; }
+  .task-ops .done-btn { font-size: 1.05rem; }
+  .stamp { width: 84px; height: 84px; top: 6px; right: 6px; }
+
+  /* 任務頁：把高度讓給示範影片 */
+  .task-left { --pad: 12px; }
+  .task-head { padding: 12px 16px; gap: 12px; }
+  .task-emoji { flex-basis: 52px; width: 52px; height: 52px; }
+  .task-emoji svg { width: 36px; height: 36px; }
+  .task-steps { padding: 12px 16px; }
+  .task-steps h3 { margin-bottom: 8px; }
+  .task-steps ol li { min-height: 52px; padding: 9px 12px 9px 60px; font-size: 1.2rem; }
+  body.task-page .task-steps ol li { line-height: 1.7; }
+  .task-steps ol li::before { width: 46px; font-size: 20px; }
+  .task-actions { padding: 10px 16px 12px; }
+  body.task-page .task-actions .btn { min-height: 56px; font-size: 18px; }
+}
+
+/* ── 極短（小筆電開了書籤列） ── */
+@media (max-height: 720px) {
+  .kidbar { min-height: 56px; }
+  .sticker .emoji { width: 40px; height: 40px; }
+  .story-card::before { font-size: 34px; }
+  #storyEmoji { flex-basis: 46px; width: 46px; height: 46px; }
+  .story-title { font-size: 20px; }
+  .story-intro { font-size: 17px; line-height: 1.7; }
+  .tasks-grid { grid-auto-rows: minmax(200px, 1fr); }
+  .task-verb  { font-size: 1.35rem; }
+  .task-story { font-size: 1.05rem; }
+  .task-steps ol li { font-size: 1.1rem; min-height: 46px; padding: 7px 12px 7px 56px; }
+}
+
+/* ── 大桌機：抬頭對齊主區，格子長回直式 ── */
+@media (min-width: 1600px) and (min-height: 961px) {
+  .kidbar { min-height: 92px; }
+  .app-title { font-size: 30px; }
+  .subtitle { font-size: 15px; }
+  .logo { width: 48px; height: 48px; font-size: 28px; }
+  .sticker { padding: 14px 20px; }
+  .sticker .emoji { width: 68px; height: 68px; }
+  .sticker .cap-num { font-size: 20px; }
+  .sticker .cap-sub { font-size: 17px; }
+  .story-card::before { width: 100px; font-size: 60px; }
+  .story-title { font-size: 32px; }
+  .story-intro { font-size: 20px; }
+  .tasks-grid { grid-auto-rows: minmax(340px, 1fr); }
+  .task-verb  { font-size: 2.4rem; }
+  .task-story { font-size: 1.35rem; }
+  .task-icon::before { width: 52px; height: 52px; font-size: 28px; }
+  .stamp { width: 124px; height: 124px; top: 14px; right: 14px; }
+
+  .task-left  { flex: 1 1 auto; --pad: 28px; }
+  .task-right { flex: 0 1 40%; max-width: 680px; }
+  .task-steps ol li { font-size: 1.5rem; }
+}
+
+/* ── 觸控樓地板：永遠寫在尺寸斷點之後 ── */
+@media (pointer: coarse) {
+  .btn { min-height: 50px; }
+  .btn.switch-btn { min-height: 44px; }
+  .kid-actions .btn { min-height: 50px; }
+  .task-ops .start-btn { min-height: 58px; }
+  .task-ops .done-btn { min-height: 50px; }
+  body.task-page .task-actions .btn { min-height: 60px; }
+}
+
+/* ── 橫向鎖定：直向的觸控裝置不做版面，改引導轉回來 ── */
+.rotate-gate { display: none; }
+
+@media (orientation: portrait) and (pointer: coarse) {
+  .rotate-gate {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 22px;
+    padding: 40px 32px max(40px, env(safe-area-inset-bottom));
+    background: var(--paper);
+    border: 10px solid var(--ink);
+    text-align: center;
+  }
+  .rotate-gate-icon {
+    width: 112px;
+    height: 112px;
+    color: var(--ink);
+    animation: rotate-hint 2.8s cubic-bezier(.65, 0, .35, 1) infinite;
+  }
+  .rotate-gate-title { margin: 0; font-size: 30px; font-weight: 900; letter-spacing: 0.08em; color: var(--ink); }
+  .rotate-gate-text {
+    margin: 0;
+    max-width: 22ch;
+    font-family: var(--font-read);
+    font-weight: normal;
+    font-size: 1.3rem;
+    line-height: 2.2;
+    color: var(--ink-soft);
+  }
+}
+@keyframes rotate-hint {
+  0%, 55%, 100% { transform: rotate(0deg); }
+  25%, 40%      { transform: rotate(-90deg); }
+}
+
+/* ── 減少動態 ── */
+@media (prefers-reduced-motion: reduce) {
+  .rotate-gate-icon { animation: none; }
+  .task-card.just-stamped,
+  .task-card.just-stamped .stamp { animation: none; }
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* 任務頁：按下「開始測試」後反白並停留，直到前往相機頁 */
+.btn.primary.is-going { background: var(--paper); color: var(--ink); }
+.task-illustration-fallback { display: grid; place-items: center; font-size: 80px; }
+.task-illustration-fallback svg { width: 45%; height: auto; }

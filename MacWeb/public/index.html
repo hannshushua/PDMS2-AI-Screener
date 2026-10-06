@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="zh-Hant">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PDMS2 圖片轉網址</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=Space+Grotesk:wght@500;700&display=swap"
+        rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+</head>
+
+<body>
+    <div class="bg-grid" aria-hidden="true"></div>
+    <main class="shell">
+        <section class="panel panel-main">
+            <p class="eyebrow">PDMS2 IMAGE URL TOOL</p>
+            <h1>把圖片變成可分享網址</h1>
+            <p class="subtext">
+                圖片來源規則：<code>PDMS2/{uid}/{filename}.jpg</code>
+                。輸入測試者 uid 與圖片檔名後，系統會產生完整網址並可立即預覽。
+            </p>
+
+            <form id="urlForm" class="form-area">
+                <label for="uidSelect">uid</label>
+                <div class="input-row">
+                    <select id="uidSelect" required></select>
+                    <button type="button" id="refreshUid" class="ghost">重新讀取</button>
+                </div>
+
+                <label for="filenameInput">圖片檔名</label>
+                <div class="input-row">
+                    <input id="filenameInput" type="text" placeholder="例如：ch1-t1.jpg" required />
+                    <button type="button" id="pickImage" class="ghost">讀取清單</button>
+                </div>
+
+                <label for="filenameSelect">或從清單選擇</label>
+                <select id="filenameSelect">
+                    <option value="">請先讀取清單</option>
+                </select>
+
+                <button type="submit" class="cta">產生網址</button>
+            </form>
+        </section>
+
+        <section class="panel panel-preview">
+            <h2>結果</h2>
+            <div class="result-box">
+                <input id="resultUrl" type="text" readonly placeholder="這裡會出現網址" />
+                <button id="copyBtn" type="button">複製</button>
+            </div>
+            <p id="statusText" class="status">尚未產生網址</p>
+
+            <div class="preview-frame">
+                <img id="previewImage" alt="圖片預覽" />
+                <p id="previewHint">產生網址後會顯示圖片預覽</p>
+            </div>
+        </section>
+    </main>
+
+    <script src="app.js"></script>
+</body>
+
+</html>

@@ -1,0 +1,242 @@
+/* admin.css - 已加入權限控制邏輯 */
+
+/* ====== Candy / Kid-Friendly Theme ====== */
+:root{
+  --bg1:#fff7fb;         /* 粉粉底 */
+  --bg2:#f0f9ff;         /* 藍藍底 */
+  --card:#ffffff;
+  --border:#e9ecf3;
+  --text:#1f2937;
+  --muted:#6b7280;
+
+  --pink:#f472b6;
+  --pink-50:#fdf2f8;
+  --indigo:#6366f1;
+  --indigo-50:#eef2ff;
+  --mint:#34d399;
+  --mint-50:#ecfdf5;
+  --amber:#f59e0b;
+
+  --radius-xl:20px;
+  --shadow:0 10px 30px rgba(31,41,55,.08);
+  --shadow-soft:0 4px 12px rgba(99,102,241,.12);
+}
+
+*{ box-sizing:border-box; }
+html,body{ height:100%; }
+body {
+  margin: 0;
+  font-family: "Noto Sans TC", sans-serif;
+  background: linear-gradient(135deg, #fdf2f8, #eef2ff, #ecfdf5);
+  background-image:
+    radial-gradient(circle at 20% 20%, rgba(255,255,255,0.8) 0, transparent 50%),
+    radial-gradient(circle at 80% 30%, rgba(255,255,255,0.6) 0, transparent 40%),
+    radial-gradient(circle at 40% 70%, rgba(255,255,255,0.7) 0, transparent 50%);
+  background-repeat: no-repeat;
+  background-size: cover;
+  background-attachment: fixed;
+}
+
+
+/* Header */
+.header{
+  position:sticky; top:0; z-index:10;
+  backdrop-filter: blur(10px);
+  background:rgba(255,255,255,.7);
+  border-bottom:1px dashed #f0e6ff;
+}
+.header .inner{
+  max-width:1160px; margin:0 auto; padding:14px 24px;
+  display:flex; align-items:center; justify-content:space-between;
+}
+.brand{ display:flex; align-items:center; gap:12px; }
+.logo{
+  width:44px; height:44px; border-radius:14px;
+  background:linear-gradient(135deg,#ffd6e7,#c7d2fe);
+  box-shadow:var(--shadow-soft);
+  display:grid; place-items:center; font-weight:800; color:#5b21b6;
+}
+.title{ font-size:20px; font-weight:800; letter-spacing:.5px; }
+.muted{ color:var(--muted); font-size:12px; }
+
+/* Layout */
+.wrap{ max-width:1160px; margin: 22px auto; padding: 0 20px; }
+.card{
+  background: var(--card);
+  border:1px solid var(--border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow);
+}
+.card .body{ padding:18px; }
+
+/* Controls */
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 12px;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  padding-bottom: 6px;
+}
+
+/* 滾動條變可愛一點 */
+.toolbar::-webkit-scrollbar {
+  height: 6px;
+}
+.toolbar::-webkit-scrollbar-thumb {
+  background: #e5e7eb;
+  border-radius: 3px;
+}
+
+.tool-left, .tool-right{ display:flex; align-items:center; gap:10px; }
+.input, select.input{
+  height:42px; min-width:240px;
+  padding:0 14px; border:1px solid var(--border);
+  border-radius: 999px;
+  background:#fff;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.7);
+  outline:none;
+}
+.input:focus{ border-color:#c7d2fe; box-shadow:0 0 0 4px #eef2ff; }
+
+/* Buttons */
+.btn, .btn.file-label{
+  display:inline-flex; align-items:center; justify-content:center; gap:8px;
+  height:42px; padding:0 14px;
+  background:#fff; border:1px solid var(--border);
+  border-radius: 14px;
+  cursor:pointer; user-select:none;
+  transition: transform .08s ease, box-shadow .2s ease, background .2s ease;
+  box-shadow: 0 2px 0 rgba(0,0,0,.02);
+  font-weight:600;
+}
+.btn:hover, .btn.file-label:hover{ background:#fafafa; box-shadow:0 6px 14px rgba(0,0,0,.06); transform: translateY(-1px); }
+.btn:active, .btn.file-label:active{ transform: translateY(0); box-shadow: none; }
+.btn.primary{ color:#fff; background:linear-gradient(135deg,#a78bfa,#f472b6); border-color:transparent; }
+.btn.primary:hover{ box-shadow:0 10px 22px rgba(99,102,241,.25); }
+.btn:disabled{ opacity:.6; cursor:not-allowed; }
+.file-label input[type=file]{ display:none; }
+
+/* Spacer */
+.spacer-12{ height:14px; }
+
+/* Table 核心樣式 */
+.table-wrap{ border-radius:18px; border:1px solid var(--border); overflow:hidden; background:#fff; }
+table{ width:100%; border-collapse: collapse; font-size:15px; table-layout: fixed; }
+
+thead{
+  background: linear-gradient(180deg, var(--indigo-50), #fff);
+}
+th,td{ padding:14px 16px; border-bottom:1px dashed #eef2ff; }
+th{ font-weight:800; color:#334155; white-space:nowrap; }
+
+/* 表頭按鈕 */
+th > button{
+  display:block;
+  width:100%;
+  font-weight:800; background:none; border:none; cursor:pointer;
+  padding:0; margin:0;
+  text-align: center; /* 預設表頭按鈕置中 */
+}
+
+/* --- [對齊設定] --- */
+
+/* 1. 預設全體靠左 (UID) */
+th, td { text-align: left; }
+th > button { text-align: left; }
+
+/* 2. 第2欄 (姓名) ~ 第8欄 (操作) 預設置中 */
+th:nth-child(n+2), td:nth-child(n+2) { text-align: center; }
+th:nth-child(n+2) > button { text-align: center; }
+
+/* 3. 第7欄 (結果畫面) 微調：往右移 */
+th:nth-child(7), td:nth-child(7) {
+    text-align: left;    /* 為了讓 padding 有效推擠，先靠左 */
+    padding-left: 45px;  /* ★ 修改這裡：數字越大越往右移 */
+}
+th:nth-child(7) {
+    padding-left: 16px;  /* 表頭保持原樣 */
+    text-align: center;  /* 表頭維持置中 */
+}
+
+/* 4. 第8欄 (操作) */
+td.admin-col { text-align: center; }
+
+tbody tr{ transition: transform .08s ease, background .2s ease; }
+tbody tr:hover{ background:#fffdfb; transform: translateY(-1px); }
+.empty{ text-align:center; color:var(--muted); padding:28px; }
+
+/* Badges & Chips */
+.badge{ display:inline-flex; align-items:center; gap:6px; padding:2px 10px; border-radius:999px; font-size:12px; border:1px solid #f0e6ff; }
+.ok{ background:var(--mint-50); color:#065f46; border-color:#a7f3d0; }
+.off{ background:#fff; color:#374151; }
+.gray{ background:#f3f4f6; color:#9ca3af; border-color:#e5e7eb; }
+
+/* Dialog */
+dialog{
+  border:none; border-radius:22px; width:min(560px, 92vw);
+  box-shadow:0 25px 60px rgba(0,0,0,.18);
+}
+.dlg-title{ margin:16px 18px 0; font-size:20px; font-weight:800; }
+.dlg-body{ padding:12px 18px; }
+.dlg-actions{ display:flex; justify-content:flex-end; gap:8px; padding:0 18px 16px; }
+.grid-gap{ display:grid; gap:12px; }
+.mb-6{ margin-bottom:6px; }
+.range{ width:100%; accent-color: var(--indigo); }
+
+/* Buttons inside Table */
+td .btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 34px;
+  padding: 0 14px;
+  margin: 2px 0;
+  border: none;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 4px rgba(0,0,0,.08);
+}
+
+/* 修改鍵：綠色 */
+.btn-edit { background: linear-gradient(135deg, #34d399, #10b981); color: white; }
+.btn-edit:hover { background: linear-gradient(135deg, #10b981, #059669); transform: translateY(-2px); }
+
+/* 刪除鍵：紅色 */
+.btn-delete { background: linear-gradient(135deg, #f87171, #ef4444); color: white; }
+.btn-delete:hover { background: linear-gradient(135deg, #ef4444, #dc2626); transform: translateY(-2px); }
+
+
+/* =========================================
+   ★ 新增：權限控制樣式 (Permission Styles) ★
+   配合 admin.js 中的 body.classList 切換
+   ========================================= */
+
+/* 1. 預設：隱藏所有受權限保護的按鈕或欄位 (display: none !important) */
+[data-auth="admin-only"], 
+[data-auth="super-admin-only"] { 
+    display: none !important; 
+}
+
+/* 2. 一般管理者 (Level 2 以上)：顯示「管理使用者」等功能 */
+body.is-admin [data-auth="admin-only"] { 
+    display: inline-flex !important; 
+}
+/* 針對表格欄位 (th, td) 的特殊顯示方式 */
+body.is-admin th[data-auth="admin-only"],
+body.is-admin td[data-auth="admin-only"] { 
+    display: table-cell !important; 
+}
+
+/* 3. 超級管理者 (Level 3)：顯示「新增紀錄/刪除」等高階功能 */
+body.is-super-admin [data-auth="super-admin-only"] { 
+    display: inline-flex !important; 
+}
+body.is-super-admin th[data-auth="super-admin-only"],
+body.is-super-admin td[data-auth="super-admin-only"] { 
+    display: table-cell !important; 
+}

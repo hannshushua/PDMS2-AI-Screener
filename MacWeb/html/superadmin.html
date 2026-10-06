@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>主管介面（醫療人員管理）</title>
+  <link rel="stylesheet" href="../css/admin.css">
+</head>
+<body>
+  <div class="header">
+    <div class="inner">
+      <div class="brand">
+        <div class="logo">S</div>
+        <div>
+          <div class="muted">主管介面</div>
+          <div class="title">醫療人員帳號管理</div>
+        </div>
+      </div>
+      <div class="muted">Supervisor</div>
+    </div>
+  </div>
+
+  <div class="wrap">
+    <!-- 操作列 -->
+    <div class="card">
+      <div class="body">
+        <div class="toolbar">
+          <div class="tool-left">
+            <button class="btn" data-action="reload">🔄 重新整理</button>
+            <button class="btn primary" data-action="add">➕ 新增醫療人員</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="spacer-12"></div>
+
+    <!-- 表格 -->
+    <div class="card">
+      <div class="body">
+        <div class="table-wrap">
+          <table>
+            <colgroup>
+              <col class="equal">
+              <col class="equal">
+              <col style="width:140px">
+            </colgroup>
+            <thead>
+              <tr>
+                <th>帳號 (account)</th>
+                <th>姓名 (name)</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody data-role="tbody">
+              <tr><td colspan="3" class="empty">讀取中…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../js/superadmin.js"></script>
+</body>
+</html>

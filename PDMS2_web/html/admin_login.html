@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="zh-Hant">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>登入 | 兒童發展測驗平台</title>
+  <link href="https://fonts.googleapis.com/css2?family=Varela+Round&family=Noto+Sans+TC:wght@400;500;700&display=swap"
+    rel="stylesheet">
+  <style>
+    :root {
+      --primary: #FF9F43;
+      --primary-hover: #F38B2A;
+      --bg-color: #FFFDF7;
+      --dot-color: #FBE5C8;
+      --text-main: #5C4E4E;
+    }
+
+    body {
+      font-family: 'Varela Round', 'Noto Sans TC', sans-serif;
+      /* 俏皮的波卡圓點背景 */
+      background-color: var(--bg-color);
+      background-image: radial-gradient(var(--dot-color) 2px, transparent 2px);
+      background-size: 30px 30px;
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      margin: 0;
+    }
+
+    .login-container {
+      background: #ffffff;
+      border-radius: 24px;
+      border: 3px solid #FFF1E0;
+      box-shadow: 0 10px 25px rgba(255, 159, 67, 0.1);
+      width: min(92vw, 480px);
+      padding: clamp(28px, 4vw, 52px) clamp(24px, 3.5vw, 44px);
+      box-sizing: border-box;
+    }
+
+    .login-header {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+
+    .login-header h2 {
+      margin: 0 0 10px 0;
+      font-size: clamp(22px, 3.5vw, 32px);
+      font-weight: 700;
+      color: #FF8A65;
+      letter-spacing: 1px;
+    }
+
+    .login-header p {
+      margin: 0;
+      font-size: clamp(14px, 1.8vw, 18px);
+      color: #9E8F8F;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    input {
+      width: 100%;
+      box-sizing: border-box;
+      padding: clamp(12px, 1.5vw, 18px) 16px;
+      border: 2px solid #F0E6D2;
+      border-radius: 16px;
+      font-size: clamp(15px, 1.8vw, 20px);
+      color: var(--text-main);
+      background-color: #FAFAFA;
+      transition: all 0.3s ease;
+    }
+
+    input:focus {
+      outline: none;
+      border-color: var(--primary);
+      background-color: #FFF;
+      box-shadow: 0 0 0 4px rgba(255, 159, 67, 0.15);
+    }
+
+    .pwd-wrapper {
+      position: relative;
+    }
+
+    .pwd-wrapper input {
+      padding-right: 52px;
+    }
+
+    .toggle-pwd {
+      position: absolute;
+      right: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: auto;
+      padding: 0;
+      margin: 0;
+      background: none;
+      border: none;
+      box-shadow: none;
+      cursor: pointer;
+      color: #C4A98A;
+      font-size: 20px;
+      line-height: 1;
+      transition: color 0.2s;
+    }
+
+    .toggle-pwd:hover { color: var(--primary); }
+    .toggle-pwd:active { transform: translateY(-50%); box-shadow: none; }
+
+    button {
+      width: 100%;
+      padding: clamp(12px, 1.6vw, 18px);
+      margin-top: 10px;
+      background-color: var(--primary);
+      color: #fff;
+      border: none;
+      border-radius: 16px;
+      font-size: clamp(16px, 2vw, 22px);
+      font-weight: 700;
+      letter-spacing: 1px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      box-shadow: 0 4px 0 #E27D22;
+    }
+
+    button:active {
+      transform: translateY(4px);
+      box-shadow: none;
+    }
+
+    #msg {
+      text-align: center;
+      margin-top: 20px;
+      font-size: clamp(13px, 1.5vw, 17px);
+      font-weight: 500;
+      min-height: 20px;
+    }
+
+    .msg-error {
+      color: #E57373;
+    }
+
+    .msg-success {
+      color: #81C784;
+    }
+
+    .msg-info {
+      color: #64B5F6;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="login-container">
+    <div class="login-header">
+      <h2>兒童測驗管理</h2>
+      <p>家長與醫療人員登入入口</p>
+    </div>
+
+    <div class="form-group">
+      <input id="acc" type="text" placeholder="帳號 (家長請輸入小朋友 UID)" autocomplete="username">
+    </div>
+    <div class="form-group pwd-wrapper">
+      <input id="pwd" type="password" placeholder="密碼 (預設為小朋友生日)" autocomplete="current-password">
+      <button type="button" class="toggle-pwd" id="togglePwd" aria-label="顯示或隱藏密碼">&#128065;</button>
+    </div>
+
+    <button id="btn">進入系統</button>
+    <div id="msg"></div>
+  </div>
+
+  <script>
+    const acc = document.getElementById('acc');
+    const pwd = document.getElementById('pwd');
+    const btn = document.getElementById('btn');
+    const msg = document.getElementById('msg');
+
+    function showMessage(text, type) {
+      msg.textContent = text;
+      msg.className = `msg-${type}`;
+    }
+
+    async function login() {
+      const account = acc.value.trim();
+      const password = pwd.value;
+
+      if (!account || !password) {
+        showMessage("請完整輸入帳號與密碼", "error");
+        return;
+      }
+
+      showMessage("資料驗證中...", "info");
+      btn.disabled = true;
+
+      try {
+        const res = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ account, password }),
+          credentials: 'include'
+        });
+
+        const js = await res.json();
+
+        if (!js.ok) {
+          showMessage(js.msg || "登入失敗，請檢查輸入的資料", "error");
+          btn.disabled = false;
+          return;
+        }
+
+        const level = js.user.level;
+        if (level === 1) {
+          showMessage("登入成功，準備進入報告頁面", "success");
+          setTimeout(() => { location.href = '/html/parent_dashboard.html'; }, 600);
+        } else if (level >= 2 && level <= 3) {
+          showMessage("登入成功，準備進入平台", "success");
+          setTimeout(() => { location.href = '/html/admin.html'; }, 600);
+        } else {
+          showMessage("系統權限異常，請聯繫管理員", "error");
+          btn.disabled = false;
+        }
+      } catch (err) {
+        showMessage("無法連線至伺服器，請檢查網路狀態", "error");
+        btn.disabled = false;
+      }
+    }
+
+    document.getElementById('togglePwd').addEventListener('click', () => {
+      const isHidden = pwd.type === 'password';
+      pwd.type = isHidden ? 'text' : 'password';
+      togglePwd.innerHTML = isHidden ? '&#128064;' : '&#128065;';
+    });
+
+    window.addEventListener('pageshow', e => {
+      if (e.persisted) btn.disabled = false;
+    });
+
+    btn.addEventListener('click', login);
+    document.addEventListener('keydown', e => { if (e.key === 'Enter') login(); });
+  </script>
+</body>
+
+</html>

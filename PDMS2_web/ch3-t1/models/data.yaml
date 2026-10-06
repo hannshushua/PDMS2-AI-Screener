@@ -1,0 +1,6 @@
+path: C:/Users/hiimd/Desktop/vscode/Peabody-Developmental-Motor-Scales/PDMS2_web/roboflow
+train: train/images
+val: valid/images
+names:
+  0: object
+  1: paper

@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="zh-Hant">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>任務操作｜魔法王國大冒險</title>
+  <link rel="preload" href="/css/fonts/fmas-gensen-bpmf.woff2?v=3" as="font" type="font/woff2" crossorigin />
+  <link rel="stylesheet" href="/css/styles.css?v=49" />
+
+</head>
+
+<body class="task-page">
+  <!-- 橫向鎖定：只在直向的觸控裝置出現，圖示自己示範要轉的方向 -->
+  <div class="rotate-gate" role="alert">
+    <svg class="rotate-gate-icon" viewBox="0 0 64 64" fill="none" stroke="currentColor"
+         stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <rect x="17" y="4" width="30" height="56" rx="6" />
+      <line x1="27" y1="12" x2="37" y2="12" />
+      <circle cx="32" cy="52" r="2.2" fill="currentColor" stroke="none" />
+    </svg>
+    <h2 class="rotate-gate-title">請把螢幕轉橫</h2>
+    <p class="rotate-gate-text">妙妙屋的故事要橫著看才完整，把螢幕轉過來就可以繼續囉。</p>
+  </div>
+
+  <header class="kidbar">
+    <div class="kidbar-left">
+      <span class="logo" aria-hidden="true">ㄇ</span>
+      <div class="title-wrap">
+        <h1 class="app-title">任務操作</h1>
+        <div class="subtitle">跟著指示一步一步完成！</div>
+      </div>
+    </div>
+    <div class="kidbar-right">
+      <button id="readBtn" class="btn big" data-icon="sound">讀指示</button>
+      <button id="stopBtn" class="btn" data-icon="stop">停止</button>
+      <a id="backBtn" href="/html/index.html" class="btn ghost" data-icon="left">回關卡</a>
+    </div>
+  </header>
+
+  <main class="task-split" aria-live="polite">
+
+    <!-- 左側：影片 / 圖片 -->
+    <div class="task-left">
+      <figure class="task-illustration">
+        <img id="img" alt="示意圖" style="display:none" />
+        <video id="video" controls autoplay loop muted playsinline style="display:none"></video>
+        <div id="imgEmoji" class="task-illustration-fallback"></div>
+      </figure>
+    </div>
+
+    <!-- 右側：標題 + 步驟 + 按鈕 -->
+    <div class="task-right">
+      <section class="task-head">
+        <div class="task-emoji" id="emoji"></div>
+        <div>
+          <h2 class="task-title" id="title">任務標題</h2>
+          <p class="task-desc" id="desc">任務說明</p>
+        </div>
+      </section>
+
+      <section class="task-steps">
+        <h3>步驟</h3>
+        <ol id="steps"></ol>
+        <div class="hint">準備好了就按「開始測試」，回到關卡時，這一格會蓋上「完成」章。</div>
+      </section>
+
+      <div class="task-actions">
+        <a id="backBtnBottom" href="/html/index.html" class="btn secondary fat" data-icon="left">回上一頁</a>
+        <button id="doneBtn" class="btn primary fat" data-icon="play">開始測試</button>
+      </div>
+    </div>
+
+  </main>
+
+
+  <!-- 每一關的語音提示（檔名對應關卡 id，例如 /voice_guide/ch1-t1.mp3） -->
+  <audio id="guideAudio" preload="auto"></audio>
+
+  <script src="/js/task.js?v=14" defer></script>
+  <script src="/js/custom-scrollbar.js?v=2"></script>
+</body>
+
+</html>

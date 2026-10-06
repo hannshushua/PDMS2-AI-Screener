@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="zh-Hant">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>任務操作｜魔法王國大冒險</title>
+  <link rel="stylesheet" href="/css/styles.css" />
+  <style>
+    /* 任務頁專用補強（沿用童趣風格） */
+    .task-stage {
+      max-width: 960px;
+      margin: 16px auto;
+      padding: 14px
+    }
+
+    .task-head {
+      display: grid;
+      grid-template-columns: 90px 1fr;
+      gap: 14px;
+      background: #fff;
+      border: 3px solid #ffe1f1;
+      border-radius: 22px;
+      box-shadow: var(--shadow);
+      padding: 16px
+    }
+
+    .task-emoji {
+      font-size: 64px;
+      display: grid;
+      place-items: center
+    }
+
+    .task-title {
+      margin: 6px 0 4px;
+      font-size: 24px
+    }
+
+    .task-desc {
+      margin: 0;
+      color: #444;
+      font-size: 18px
+    }
+
+    .task-illustration {
+      margin-top: 12px;
+      background: #fff;
+      border: 3px solid #cfefff;
+      border-radius: 22px;
+      box-shadow: var(--shadow);
+      padding: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 220px
+    }
+
+    .task-steps {
+      margin-top: 12px;
+      background: #fff;
+      border: 3px solid #e9e1ff;
+      border-radius: 22px;
+      box-shadow: var(--shadow);
+      padding: 14px
+    }
+
+    .task-steps ol {
+      margin: 8px 0 0 20px;
+      font-size: 18px
+    }
+
+    .task-actions {
+      display: flex;
+      gap: 12px;
+      justify-content: space-between;
+      margin-top: 14px
+    }
+
+    .hint {
+      font-size: 14px;
+      color: #666;
+      margin-top: 6px
+    }
+
+    @media (max-width:760px) {
+      .task-head {
+        grid-template-columns: 70px 1fr
+      }
+
+      .task-emoji {
+        font-size: 52px
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <header class="kidbar">
+    <div class="kidbar-left">
+      <span class="logo" aria-hidden="true">🪄✨</span>
+      <div class="title-wrap">
+        <h1 class="app-title">任務操作</h1>
+        <div class="subtitle">跟著指示一步一步完成！</div>
+      </div>
+    </div>
+    <div class="kidbar-right">
+      <button id="readBtn" class="btn">🎤 讀指示</button>
+      <button id="stopBtn" class="btn danger fat">⏹ 停止朗讀</button>
+      <a id="backBtn" href="/html/index.html" class="btn ghost pill">← 回關卡</a>
+    </div>
+  </header>
+
+  <main class="task-stage" aria-live="polite">
+    <section class="task-head">
+      <div class="task-emoji" id="emoji">✨</div>
+      <div>
+        <h2 class="task-title" id="title">任務標題</h2>
+        <p class="task-desc" id="desc">任務說明</p>
+      </div>
+    </section>
+
+    <figure class="task-illustration">
+      <!-- 放教學圖（PNG/SVG/GIF）；沒有圖時顯示Emoji -->
+      <img id="img" alt="示意圖" style="max-width:100%;display:none" />
+      <video id="video" controls autoplay loop style="max-width:100%;display:none"></video>
+      <div id="imgEmoji" style="font-size:80px"></div>
+    </figure>
+
+    <section class="task-steps">
+      <h3 style="margin:0 0 6px">步驟</h3>
+      <ol id="steps"></ol>
+      <div class="hint">完成後按右下角「完成」，會自動幫你在主頁打勾。</div>
+    </section>
+
+    <div class="task-actions">
+      <a id="backBtnBottom" href="/html/index.html" class="btn secondary fat">← 回上一頁</a>
+      <button id="doneBtn" class="btn primary fat">測試階段(>下一關)</button>
+    </div>
+  </main>
+
+  <div id="confetti" class="confetti" aria-hidden="true"></div>
+
+  <script src="/js/task.js?v=2" defer></script>
+</body>
+
+</html>

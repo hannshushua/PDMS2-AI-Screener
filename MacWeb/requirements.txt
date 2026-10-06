@@ -1,0 +1,49 @@
+# MacWeb — Python 3.9.x（MacBook Pro 2015 / Intel x86_64）
+#
+# 這裡全部釘死版本，不用 >=x,<y 的範圍寫法。
+# 原因：範圍代表「裝當下最新的」，而下列套件已經停止支援 3.9，
+# 同一份檔案去年裝得起來、今年就會噴 "requires Python >=3.10"：
+#   python-dotenv        1.2.2+   需要 3.10
+#   langchain-community  0.4.0+   需要 3.10（並連帶拉 langchain-core 1.x）
+#   langchain-chroma     1.0.0+   需要 3.10
+#   sentence-transformers 6.0.0+  需要 3.10
+#
+# 版本與 PDMS2_web/requirements.txt 對齊，該環境已在 Python 3.9.13 實測可用。
+# 安裝一律用 python3 -m pip，不要用 pip3（避免裝錯直譯器）：
+#   python3 -m pip install -r requirements.txt
+
+# ---------- Web 本體（web.py）----------
+Flask==3.1.2
+flask-cors==6.0.1
+PyMySQL==1.1.2
+python-dotenv==1.2.1
+
+# ---------- RAG 建議生成（PDMS2_web/utils/rag_advisor.py）----------
+langchain==0.3.30
+langchain-core==0.3.86
+langchain-community==0.3.31
+langchain-openai==0.3.35
+langchain-huggingface==0.3.1
+langchain-chroma==0.2.6
+langchain-text-splitters==0.3.11
+chromadb==1.5.9
+sentence-transformers==5.1.2
+
+# ---------- 電腦視覺評分 ----------
+# web.py 會用 sys.executable spawn PDMS2_web/<關卡>/main.py，
+# 所以 YOLO / SAM 這組也必須裝在同一個環境裡。
+#
+# 注意 Intel Mac 的兩個硬限制：
+#   1. PyTorch 從 2.3 起不再發佈 macOS x86_64 wheel，上限只能到 2.2.2
+#      （torchvision 對應版本為 0.17.2）
+#   2. torch 2.2.x 是對 numpy 1.x 編譯的，numpy 必須壓在 2.0 以下，
+#      否則 import 時會出現 _ARRAY_API not found
+# Apple Silicon 或 Windows 請改用 PDMS2_web/requirements.txt 的新版組合。
+numpy==1.26.4
+torch==2.2.2
+torchvision==0.17.2
+opencv-python==4.12.0.88
+ultralytics==8.3.217
+
+# SAM 官方套件未發佈到 PyPI，模組名稱為 segment_anything
+segment-anything @ git+https://github.com/facebookresearch/segment-anything.git

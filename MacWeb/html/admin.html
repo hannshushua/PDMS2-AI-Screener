@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>管理者介面（關卡/姓名查詢）</title>
+  <link rel="stylesheet" href="../css/admin.css">
+  <style>
+    /* modal 與縮圖樣式 */
+    .modal.hidden { display: none; }
+    .modal {
+      position: fixed; inset: 0; background: rgba(0,0,0,.65);
+      display: flex; align-items: center; justify-content: center; z-index: 9999;
+      backdrop-filter: blur(2px);
+    }
+    .modal-content {
+      background: #fff; width: min(900px, 92vw); max-height: 90vh;
+      border-radius: 12px; overflow: hidden; display: flex; flex-direction: column;
+      box-shadow: 0 10px 40px rgba(0,0,0,.4);
+    }
+    .modal-head {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 16px; border-bottom: 1px solid #eee; background: #f9f9f9;
+    }
+    .modal-body {
+      padding: 0; background: #000; display: flex; 
+      align-items: center; justify-content: center; flex: 1; overflow: auto;
+    }
+    .modal-body img, .modal-body video {
+      max-width: 100%; max-height: 80vh; object-fit: contain;
+    }
+    .thumb {
+      width: 48px; height: 48px; object-fit: cover; border-radius: 6px;
+      border: 1px solid #ddd; cursor: pointer; vertical-align: middle;
+      transition: transform 0.2s;
+    }
+    .thumb:hover { transform: scale(1.1); border-color: #999; }
+    
+    /* === 權限控制樣式 (修改部分) === */
+    /* 預設隱藏管理者按鈕 */
+    [data-auth="admin-only"], 
+    [data-auth="super-admin-only"] { display: none !important; }
+
+    /* Level 2 & 3: 顯示一般管理功能 (如: 管理使用者) */
+    body.is-admin [data-auth="admin-only"] { display: inline-flex !important; }
+    body.is-admin th[data-auth="admin-only"] { display: table-cell !important; }
+
+    /* Level 3 Only: 顯示超級管理功能 (如: 新增成績、刪除成績) */
+    body.is-super-admin [data-auth="super-admin-only"] { display: inline-flex !important; }
+    body.is-super-admin th[data-auth="super-admin-only"] { display: table-cell !important; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="inner">
+      <div class="brand">
+        <div class="logo">A</div>
+        <div>
+          <div class="muted">後台系統</div>
+          <div class="title">小朋友作答紀錄查詢</div>
+        </div>
+      </div>
+      <div class="muted" id="current-user-info"></div>
+    </div>
+  </div>
+
+  <div class="wrap">
+    <div class="card">
+      <div class="body">
+        <div class="toolbar">
+          <div class="tool-left">
+            <select class="input" id="sel-name" title="依姓名篩選">
+              <option value="">載入中...</option>
+            </select>
+            
+            <select class="input" id="sel-level" title="依關卡篩選">
+              <option value="">（所有關卡）</option>
+            </select>
+            
+            <button class="btn" data-action="reset">重置篩選</button>
+          </div>
+          <div class="tool-right">
+            <button class="btn" data-action="manage-users" data-auth="admin-only">管理使用者</button>
+            <button class="btn primary" data-action="new" data-auth="super-admin-only">＋ 新增紀錄</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="spacer-12"></div>
+
+    <div class="card">
+      <div class="body">
+        <div class="table-wrap">
+          <table>
+            <colgroup>
+              <col style="width: 10%">
+              <col style="width: 15%">
+              <col style="width: 15%">
+              <col style="width: 10%">
+              <col style="width: 15%">
+              <col style="width: 15%">
+              <col style="width: 20%">
+            </colgroup>
+            <thead>
+              <tr>
+                <th><button data-sort="uid">UID ↕</button></th>
+                <th><button data-sort="name">姓名 ↕</button></th>
+                <th><button data-sort="task_id">關卡 ↕</button></th>
+                <th><button data-sort="score">分數 ↕</button></th>
+                <th><button data-sort="test_date">測試日期 ↕</button></th>
+                <th><button data-sort="time">測試時間 ↕</button></th>
+                <th>結果畫面</th>
+                <th data-auth="super-admin-only" style="width:100px">操作</th>
+              </tr>
+            </thead>
+            <tbody id="tbody">
+              <tr><td colspan="8" class="empty">資料讀取中...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <dialog data-role="dialog" id="edit-dialog">
+    <form method="dialog">
+      <h3 class="dlg-title">編輯資料</h3>
+      <div class="dlg-body">
+        <div class="grid-gap">
+          <div>
+            <div class="muted mb-6">UID</div>
+            <input class="input" data-field="userId" placeholder="例如：A12345" />
+          </div>
+          <div>
+            <div class="muted mb-6">姓名</div>
+            <input class="input" data-field="name" placeholder="王小明" />
+          </div>
+          <div id="score-fields">
+            <div class="mt-2">
+              <div class="muted mb-6">關卡代號</div>
+              <input class="input" data-field="level" placeholder="Ch1-t1" />
+            </div>
+            <div class="mt-2">
+              <div class="muted mb-6">分數：<strong data-field="score-text">0</strong></div>
+              <input type="range" min="0" max="5" step="1" value="0" data-field="score" class="range" style="width:100%"/>
+            </div>
+            <div class="mt-2">
+              <div class="muted mb-6">測試日期</div>
+              <input class="input" data-field="test_date" type="date" />
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="dlg-actions">
+        <button class="btn" value="cancel">取消</button>
+        <button class="btn primary" data-action="save" value="default">儲存</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div id="preview-modal" class="modal hidden">
+    <div class="modal-content">
+      <div class="modal-head">
+        <h4 style="margin:0" id="pv-title">預覽</h4>
+        <button class="btn btn-sm" onclick="document.getElementById('preview-modal').classList.add('hidden')">✕ 關閉</button>
+      </div>
+      <div id="preview-body" class="modal-body">
+        </div>
+    </div>
+  </div>
+
+  <script src="../js/admin.js?v=4"></script>
+</body>
+</html>

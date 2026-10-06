@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>拍照存證｜魔法王國</title>
+  <link rel="stylesheet" href="/css/styles.css?v=1" />
+  <style>
+    .camera-card{padding:20px}
+    .cam-wrap{position:relative; border:4px solid #e7f3ff; border-radius:18px; background:#fff}
+    .cam-view{display:flex; align-items:center; justify-content:center; padding:16px; min-height:400px}
+    .camera-stream{max-width:100%; width:100%; border-radius:12px; background:#000; max-height:600px; object-fit:cover}
+    .cam-ops{display:flex; gap:12px; flex-wrap:wrap; justify-content:center; padding:16px}
+    .tip{font-size:14px; color:#61707f; text-align:center; margin-top:8px}
+    .status-info{
+      background:#f8f9fa; 
+      padding:12px; 
+      border-radius:8px; 
+      margin:12px 0; 
+      font-size:14px;
+      text-align:center;
+    }
+    .status-success{background:#e8f5e8; color:#2d5a2d}
+    .status-error{background:#fdeaea; color:#5a2d2d}
+    .status-info.loading::after {
+      content: '';
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      margin-left: 8px;
+      border: 2px solid #666;
+      border-radius: 50%;
+      border-top-color: transparent;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+  <main class="playground">
+    <section class="story-card camera-card" aria-live="polite">
+      <div class="story-emoji" id="taskIcon"></div>
+      <div class="story-text">
+        <h2 class="story-title" id="taskTitle">拍照存證</h2>
+        <p class="story-intro">使用相機拍下你完成的作品！</p>
+      </div>
+    </section>
+
+    <div id="statusInfo" class="status-info">準備開始...</div>
+
+    <section class="cam-wrap">
+      <div class="cam-view">
+        <img id="cameraStream" class="camera-stream" src="" alt="相機畫面" style="display:none;" />
+        <div id="placeholderText" style="color:#666; text-align:center; line-height:400px;">
+          等等相機畫面會顯示在這裡 ~
+        </div>
+      </div>
+      <div class="cam-ops">
+        <button id="shotBtn" class="btn secondary fat pill" disabled>🎞️ 拍照、存檔並回主頁</button>
+        <button id="stopBtn" class="btn btn-danger fat pill" style="display:none;">🔴 停止錄影</button> 
+      </div>
+      <p class="tip">
+        使用 OpenCV 控制電腦相機，照片將直接儲存到對應的任務資料夾中。
+      </p>
+    </section>
+
+    <div class="cam-ops" style="margin-top:18px">
+      <a id="backLink" href="/html/index.html" class="btn ghost pill">← 先回主頁</a>
+    </div>
+  </main>
+
+  <script src="/js/camera.js?v=1" defer></script>
+</body>
+</html>
