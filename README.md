@@ -335,10 +335,13 @@ python PDMS2_web/admin.py
 | 檔案 | 說明 |
 | --- | --- |
 | [系統架構.md](doc/系統架構.md) | 系統架構說明書：模組、介面與資料流 |
+| [團隊分工.md](doc/團隊分工.md) | 團隊分工項目清單 |
 | [幼兒版任務口白稿.md](doc/幼兒版任務口白稿.md) | 2–6 歲幼兒版任務口白稿 |
 | [測試計畫書.pdf](doc/測試計畫書.pdf) | 測試計畫書 |
+| [測試計畫書_signed.pdf](doc/測試計畫書_signed.pdf) | 測試計畫書（簽名版） |
 | [軟硬體專題需求規格書.pdf](doc/軟硬體專題需求規格書.pdf) | 需求規格書 |
 | [114期中_大學部軟硬體專題.pdf](doc/114期中_大學部軟硬體專題.pdf) | 期中報告簡報 |
+| [GCBME2026_draft_final.pdf](doc/GCBME2026_draft_final.pdf) | GCBME2026 論文稿 |
 
 ---
 
