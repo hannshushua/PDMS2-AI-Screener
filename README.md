@@ -7,7 +7,7 @@
 **團隊名稱：** 現在發現還不遲，你說對不隊（獵遲小隊）  
 **團隊成員：** 洪偉城、林政維、呂昊宸、林宛瑩  
 **指導教授：** 趙一平教授  
-**文件版本：** v2.0（2026-06-01）
+**文件版本：** v2.0（2026-10-12）
 
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10-blue.svg)](https://www.python.org/) [![Frontend](https://img.shields.io/badge/Frontend-HTML5%2FCSS3%2FJavaScript-E34F26.svg)](https://developer.mozilla.org/docs/Web) [![Backend](https://img.shields.io/badge/Backend-Flask-black.svg)](https://flask.palletsprojects.com/) [![Database](https://img.shields.io/badge/Database-MySQL%208.0+-4479A1.svg)](https://www.mysql.com/) [![CV](https://img.shields.io/badge/Computer%20Vision-OpenCV-green.svg)](https://opencv.org/) [![Model](https://img.shields.io/badge/Model-YOLO-red.svg)](https://github.com/ultralytics) [![Segmentation](https://img.shields.io/badge/Segmentation-SAM-purple.svg)](https://github.com/facebookresearch/segment-anything) [![DL](https://img.shields.io/badge/Deep%20Learning-TensorFlow%2FPyTorch-EE4C2C.svg)](https://www.tensorflow.org/)
 
