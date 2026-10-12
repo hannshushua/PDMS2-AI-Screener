@@ -30,6 +30,10 @@
 - [2025 全國 AI 專題創意競賽 佳作](https://phpweb2.nutn.edu.tw/ilt/wordpress/wp-content/uploads/2025/12/%E6%B1%BA%E8%B3%BD%E7%B5%90%E6%9E%9C.pdf)
 - [智創未來：2026生成式AI創意設計競賽 銅牌獎](picture/智創未來：2026生成式AI創意設計競賽.png)
 
+## 目前投稿
+
+- [GCBME 2026 論文稿](doc/GCBME2026_draft_final.pdf)
+
 ## 特色一覽
 
 - 🎯 **標準化評估：** 基於 PDMS-2 專業量表
