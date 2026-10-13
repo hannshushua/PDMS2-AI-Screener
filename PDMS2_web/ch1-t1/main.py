@@ -16,11 +16,11 @@ from pathlib import Path
 
 # ================== 核心設定 ==================
 # 分析流程：line.pt 找繩子 -> SAM2 切繩子遮罩；cube_top.pt 找積木 -> SAM2 切積木遮罩；
-#           積木離繩子夠近 (<= 積木邊長 * NEAR_RATIO) 就算穿在繩上
+#           積木中心點離繩子夠近 (<= 積木邊長 * NEAR_RATIO，約半顆積木) 就算穿在繩上
 CONF = 0.75             # 積木 YOLO 信心值
 LINE_CONF = 0.5         # 繩子 YOLO 信心值
-NEAR_RATIO = 0.03       # 積木到繩子的距離 <= 積木邊長 * NEAR_RATIO 才算在繩上 (約 1 px，等於要碰到)
-NEAR_MIN_PX = 1         # 距離門檻至少幾個像素
+NEAR_RATIO = 0.55       # 積木中心點到繩子的距離 <= 積木邊長 * NEAR_RATIO 才算在繩上
+                        # (穿在繩上時中心那段繩子被蓋住，距離約半顆積木 0.42~0.52；旁邊沒穿的大多 >= 0.59)
 BASE_DIR = Path(__file__).resolve().parent
 
 # ================== 初始化模型 ==================
@@ -101,8 +101,8 @@ def get_rope_mask(frame, conf=LINE_CONF):
 
 def judge_strung(masks, rope):
     """
-    每顆積木離繩子多遠：積木遮罩上離繩子最近的那個像素的距離。
-    距離 <= max(NEAR_MIN_PX, 積木邊長 * NEAR_RATIO) 就算在繩上。
+    每顆積木中心點離繩子多遠 (中心點 = 積木遮罩的重心)。
+    距離 <= 積木邊長 * NEAR_RATIO 就算在繩上。
     回傳 (is_correct list, 每顆的 (中心, 距離, 門檻))
     """
     if rope.any():
@@ -116,10 +116,11 @@ def judge_strung(masks, rope):
             is_correct.append(False)
             infos.append(((0, 0), np.inf, 0))
             continue
-        d = float(dist[ys, xs].min())
-        thr = max(NEAR_MIN_PX, np.sqrt(len(xs)) * NEAR_RATIO)
+        cx, cy = xs.mean(), ys.mean()
+        d = float(dist[int(round(cy)), int(round(cx))])
+        thr = np.sqrt(len(xs)) * NEAR_RATIO
         is_correct.append(d <= thr)
-        infos.append(((xs.mean(), ys.mean()), d, thr))
+        infos.append(((cx, cy), d, thr))
     return is_correct, infos
 
 def draw_block_markers(frame, masks, is_correct, rope, infos):
