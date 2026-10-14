@@ -15,7 +15,12 @@ import os
 from pathlib import Path
 
 # ================== 核心設定 ==================
-CONF = 0.75
+# 分析流程：line.pt 找繩子 -> SAM2 切繩子遮罩；cube_top.pt 找積木 -> SAM2 切積木遮罩；
+#           積木中心點離繩子夠近 (<= 積木邊長 * NEAR_RATIO，約半顆積木) 就算穿在繩上
+CONF = 0.75             # 積木 YOLO 信心值
+LINE_CONF = 0.5         # 繩子 YOLO 信心值
+NEAR_RATIO = 0.55       # 積木中心點到繩子的距離 <= 積木邊長 * NEAR_RATIO 才算在繩上
+                        # (穿在繩上時中心那段繩子被蓋住，距離約半顆積木 0.42~0.52；旁邊沒穿的大多 >= 0.59)
 BASE_DIR = Path(__file__).resolve().parent
 
 # ================== 初始化模型 ==================
@@ -32,7 +37,17 @@ except Exception as e:
     print(f"[ERROR] YOLO 模型加載失敗：{e}", flush=True)
     sys.exit(-1)
 
-# 2. SAM2 模型 (ultralytics，用於精細分割)
+# 2. 繩子 seg 模型 (提供繩子 Box 給 SAM2)
+LINE_MODEL_PATH = BASE_DIR.parent / "models" / "line.pt"
+try:
+    print(f"[DEBUG] 開始加載繩子模型: {LINE_MODEL_PATH}", flush=True)
+    line_model = YOLO(str(LINE_MODEL_PATH))
+    print("[DEBUG] 繩子模型加載完成", flush=True)
+except Exception as e:
+    print(f"[ERROR] 繩子模型加載失敗：{e}", flush=True)
+    sys.exit(-1)
+
+# 3. SAM2 模型 (ultralytics，用於精細分割)
 SAM_CHECKPOINT = BASE_DIR.parent / "models" / "sam2_b.pt"
 try:
     print(f"[DEBUG] 開始加載 SAM2 模型: {SAM_CHECKPOINT}", flush=True)
@@ -63,8 +78,8 @@ def get_sam_masks(frame, boxes):
             sam_masks.append(mask)
     return sam_masks
 
-def detect_blocks_boxes(frame, conf=CONF):
-    results = yolo_model.predict(source=frame, conf=conf, verbose=False)
+def detect_boxes(model, frame, conf):
+    results = model.predict(source=frame, conf=conf, verbose=False)
     boxes = []
     for r in results:
         if r.boxes is None: continue
@@ -73,87 +88,74 @@ def detect_blocks_boxes(frame, conf=CONF):
                 boxes.append(box.xyxy[0].cpu().numpy())
     return boxes
 
-def remove_blocks_with_mask(binary, masks, extra_px=10):
-    h, w = binary.shape
-    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (extra_px * 2, extra_px * 2))
-    for mask in masks:
-        mask_binary = (mask > 0).astype(np.uint8)
-        mask_dilated = cv2.dilate(mask_binary, kernel)
-        binary[mask_dilated > 0] = 0
-    return binary
+def detect_blocks_boxes(frame, conf=CONF):
+    return detect_boxes(yolo_model, frame, conf)
 
-def extract_line_skeleton(binary):
-    skeleton = np.zeros(binary.shape, np.uint8)
-    element = cv2.getStructuringElement(cv2.MORPH_CROSS, (7, 7))
-    temp = np.copy(binary)
-    while True:
-        open_img = cv2.morphologyEx(temp, cv2.MORPH_OPEN, element)
-        temp2 = cv2.subtract(temp, open_img)
-        eroded = cv2.erode(temp, element)
-        skeleton = cv2.bitwise_or(skeleton, temp2)
-        temp = eroded.copy()
-        if cv2.countNonZero(temp) == 0: break
-    return skeleton
+def get_rope_mask(frame, conf=LINE_CONF):
+    """line.pt 找繩子 (常被積木切成好幾段)，每段的 box 丟給 SAM2，全部合成一張繩子遮罩"""
+    boxes = detect_boxes(line_model, frame, conf)
+    rope = np.zeros(frame.shape[:2], bool)
+    for m in get_sam_masks(frame, boxes):
+        rope |= m
+    return rope
 
-def is_mask_near_skeleton(mask, skeleton, tol=15):
-    ys, xs = np.where(mask > 0)
-    h, w = skeleton.shape
-    for x, y in zip(xs, ys):
-        x0, x1 = max(0, x - tol), min(w, x + tol + 1)
-        y0, y1 = max(0, y - tol), min(h, y + tol + 1)
-        if np.any(skeleton[y0:y1, x0:x1] > 0):
-            return True
-    return False
+def judge_strung(masks, rope):
+    """
+    每顆積木中心點離繩子多遠 (中心點 = 積木遮罩的重心)。
+    距離 <= 積木邊長 * NEAR_RATIO 就算在繩上。
+    回傳 (is_correct list, 每顆的 (中心, 距離, 門檻))
+    """
+    if rope.any():
+        dist = cv2.distanceTransform((~rope).astype(np.uint8), cv2.DIST_L2, 5)
+    else:
+        dist = np.full(rope.shape, np.inf, np.float32)
+    is_correct, infos = [], []
+    for m in masks:
+        ys, xs = np.where(m)
+        if len(xs) == 0:
+            is_correct.append(False)
+            infos.append(((0, 0), np.inf, 0))
+            continue
+        cx, cy = xs.mean(), ys.mean()
+        d = float(dist[int(round(cy)), int(round(cx))])
+        thr = np.sqrt(len(xs)) * NEAR_RATIO
+        is_correct.append(d <= thr)
+        infos.append(((cx, cy), d, thr))
+    return is_correct, infos
 
-def draw_block_markers(frame, boxes, masks, is_correct, skeleton):
-    # 標註骨架線 (Cyan)
-    skeleton_bgr = cv2.cvtColor(skeleton, cv2.COLOR_GRAY2BGR)
-    skeleton_bgr[skeleton > 0] = (255, 255, 0)
-    frame = cv2.addWeighted(skeleton_bgr, 0.8, frame, 1.0, 0)
-    
-    overlay = frame.copy()
+def draw_block_markers(frame, masks, is_correct, rope, infos):
+    vis = frame.copy()
+    vis[rope] = (vis[rope] * 0.4 + np.array([255, 255, 0]) * 0.6).astype(np.uint8)   # 繩子 (青色)
+
+    overlay = vis.copy()
     for i, mask in enumerate(masks):
         # 正確為白色，錯誤為紅色
         color = (255, 255, 255) if is_correct[i] else (0, 0, 255)
-        overlay[mask > 0] = color
-        box = boxes[i]
-        center = (int((box[0] + box[2]) / 2), int((box[1] + box[3]) / 2))
-        cv2.circle(frame, center, 10, color, -1)
+        overlay[mask] = color
+    vis = cv2.addWeighted(overlay, 0.4, vis, 0.6, 0)
 
-    return cv2.addWeighted(overlay, 0.4, frame, 0.6, 0)
+    for i, (center, d, thr) in enumerate(infos):
+        c = tuple(int(v) for v in center)
+        color = (255, 255, 255) if is_correct[i] else (0, 0, 255)
+        cv2.circle(vis, c, 8, color, -1)
+        txt = "inf" if np.isinf(d) else f"{d:.0f}/{thr:.0f}"   # 距離 / 門檻 (像素)
+        cv2.putText(vis, txt, (c[0] + 10, c[1] - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 3)
+        cv2.putText(vis, txt, (c[0] + 10, c[1] - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 1)
+    return vis
 
 # ================== 主評分邏輯 ==================
 def score_from_image(img_path, conf=CONF):
     img = cv2.imread(img_path)
     if img is None: raise ValueError(f"讀取圖片失敗：{img_path}")
 
-    display_frame = img.copy()
+    rope = get_rope_mask(img)
+    boxes = detect_blocks_boxes(img, conf=conf)
+    masks = get_sam_masks(img, boxes)
 
-    gray = cv2.cvtColor(display_frame, cv2.COLOR_BGR2GRAY)
-    blurred = cv2.GaussianBlur(gray, (9, 9), 0)
-    binary = cv2.adaptiveThreshold(
-        blurred, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 27, 10
-    )
-    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
-    binary = cv2.morphologyEx(binary, cv2.MORPH_CLOSE, kernel)
+    is_correct, infos = judge_strung(masks, rope)
+    correct_num = sum(is_correct)
 
-    boxes = detect_blocks_boxes(display_frame, conf=conf)
-    masks = get_sam_masks(display_frame, boxes)
-
-    binary_masked = binary.copy()
-    if masks:
-        binary_masked = remove_blocks_with_mask(binary_masked, masks)
-
-    skeleton = extract_line_skeleton(binary_masked)
-    
-    is_correct = []
-    correct_num = 0
-    for mask in masks:
-        is_near = is_mask_near_skeleton(mask, skeleton, tol=15)
-        is_correct.append(is_near)
-        if is_near: correct_num += 1
-
-    result_img = draw_block_markers(display_frame, boxes, masks, is_correct, skeleton)
+    result_img = draw_block_markers(img, masks, is_correct, rope, infos)
 
     # 計分邏輯：2個是基礎，多1個加1分
     correct_num_for_score = correct_num
