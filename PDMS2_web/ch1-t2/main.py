@@ -1,3 +1,13 @@
+import os
+import sys
+
+# 沒接住的例外（例如 import torch 失敗）結束碼是 1，會被 web.py 當成 1 分，所以一律改成 -1 回報分析失敗
+def _exit_on_crash(*exc_info):
+    sys.__excepthook__(*exc_info)
+    sys.stdout.flush()
+    os._exit(-1)
+sys.excepthook = _exit_on_crash
+
 import cv2
 import numpy as np
 import torch
