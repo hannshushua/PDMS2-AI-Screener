@@ -605,12 +605,15 @@ def get_image(uid: str, filename: str) -> object:
     return send_file(absolute_path)
 
 
-def run_remote_analysis(uid: str, img_id: str, script_path: Path) -> int:
+def run_remote_analysis(uid: str, img_id: str, script_path: Path, machine_id: str = "") -> int:
     """執行分析腳本，回傳分數 (0/1/2)"""
     cmd = [sys.executable, str(script_path), uid, img_id]
-    logger.info("[Analysis] Running: %s", " ".join(cmd))
+    logger.info("[Analysis] Running: %s (machine_id=%s)", " ".join(cmd), machine_id or "-")
 
     env = os.environ.copy()
+    if machine_id:
+        # 讓分析程式讀現場機寫進 machine_configs 的設定，而不是這台 Mac 自己的
+        env["PDMS2_MACHINE_ID"] = machine_id
     env["PYTHONIOENCODING"] = "utf-8"
     env["PYTHONUTF8"] = "1"
     env["PYTHONUNBUFFERED"] = "1"
@@ -694,6 +697,7 @@ def api_submit_analysis():
     uid = request.form.get("uid")
     img_id = request.form.get("img_id")  # 例如 ch1-t1
     timestamp = request.form.get("timestamp")
+    machine_id = (request.form.get("machine_id") or "").strip()
     files = request.files.getlist("images")
 
     if not uid or not img_id or not files:
@@ -745,7 +749,7 @@ def api_submit_analysis():
 
     # 3. 同步執行分析
     try:
-        score = run_remote_analysis(uid, img_id, script_path)
+        score = run_remote_analysis(uid, img_id, script_path, machine_id)
         # 4. 將成績寫回遠端 DB
         write_remote_results(uid, img_id, score, ANALYSIS_ROOT, timestamp)
         return jsonify({"ok": True, "msg": "分析完成", "score": score})

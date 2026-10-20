@@ -1504,7 +1504,8 @@ def submit_remote_analysis(uid: str, img_id: str) -> dict:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         response = requests.post(
             mac_web_api_url,
-            data={"uid": uid, "img_id": img_id, "timestamp": timestamp},
+            # machine_id：遠端分析程式要用它去 machine_configs 查這台現場機的 px2cm / 標準面積
+            data={"uid": uid, "img_id": img_id, "timestamp": timestamp, "machine_id": _get_machine_id()},
             files=files_to_send,
             timeout=180,
         )

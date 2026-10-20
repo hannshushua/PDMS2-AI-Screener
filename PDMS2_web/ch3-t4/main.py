@@ -19,6 +19,10 @@ def return_score(score):
 
 def _get_machine_id() -> str:
     """取得或生成本機識別碼"""
+    # 遠端分析時 MacWeb 會帶入現場機的 ID，才讀得到現場機量測寫進 DB 的設定
+    remote_machine_id = os.environ.get("PDMS2_MACHINE_ID", "").strip()
+    if remote_machine_id:
+        return remote_machine_id
     env_path = Path(__file__).resolve().parent.parent / ".env"
     if env_path.exists():
         try:

@@ -42,6 +42,10 @@ def _read_env_value(key, default):
 
 def _get_machine_id() -> str:
     """取得或生成本機識別碼"""
+    # 遠端分析時 MacWeb 會帶入現場機的 ID，才讀得到現場機量測寫進 DB 的設定
+    remote_machine_id = os.environ.get("PDMS2_MACHINE_ID", "").strip()
+    if remote_machine_id:
+        return remote_machine_id
     if ENV_PATH.exists():
         try:
             for raw_line in ENV_PATH.read_text(encoding="utf-8").splitlines():
