@@ -289,7 +289,7 @@
 
       $f_userId.value = ''; $f_name.value = ''; $f_userId.disabled = false;
       if ($f_birthday) $f_birthday.value = '';
-      if ($f_level) $f_level.value = '';
+      if ($f_level) { $f_level.value = ''; $f_level.disabled = false; }
       
       // ✅ 預設改回 -1
       if ($f_score) { $f_score.value = '-1'; $scoreDisplay.textContent = '-1'; }
@@ -393,7 +393,7 @@
 
         $f_userId.value = row.uid; $f_userId.disabled = true;
         $f_name.value = row.name || '';
-        $f_level.value = row.task_id || '';
+        $f_level.value = row.task_id || ''; $f_level.disabled = true;  // 結果圖與分析資料屬於原關卡，編輯時不能換
         
         // ✅ 編輯時若沒有分數，預設為 -1
         $f_score.value = row.score ?? -1; $scoreDisplay.textContent = row.score ?? -1;

@@ -1121,6 +1121,19 @@ def upsert_score():
         old_parts = (data.get("row_key_old") or "").split("|", 3)
         time_val = old_parts[3] if len(old_parts) == 4 and old_parts[3] else datetime.now().strftime("%H:%M:%S")
 
+        # 編輯時改了日期：先把原紀錄整筆搬到新日期（結果圖、data1、人工評分都跟著走），下面的 INSERT 才會更新到同一筆
+        if len(old_parts) == 4 and old_parts[3]:
+            _, old_task_id, old_date, _ = old_parts
+            if old_task_id != task_id:
+                return jsonify({"ok": False, "msg": "編輯時不能更換關卡，請刪除後重新新增"}), 400
+            if old_date != test_date.isoformat():
+                table = task_id_to_table(task_id)
+                db_exec(f"UPDATE `{table}` SET test_date=%s WHERE uid=%s AND test_date=%s AND time=%s",
+                        (test_date, uid, old_date, time_val))
+                for t in ("score_list", "manual_score"):
+                    db_exec(f"UPDATE `{t}` SET test_date=%s WHERE uid=%s AND task_id=%s AND test_date=%s AND time=%s",
+                            (test_date, uid, task_id, old_date, time_val))
+
         # 1. 寫入總表：若已存在同人、同關卡、同天、同時間的紀錄，則不做任何事 (保持連結)
         db_exec(
             "INSERT INTO score_list (uid, task_id, test_date, time) VALUES (%s, %s, %s, %s) "
