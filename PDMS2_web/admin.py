@@ -1117,19 +1117,23 @@ def upsert_score():
         ensure_user(uid)  # 確保 user_list 有這名小朋友
         ensure_task(task_id)
 
-        # 1. 寫入總表：若已存在同人、同天、同關卡的紀錄，則不做任何事 (保持連結)
+        # 總表與任務表的主鍵都含 time：編輯沿用原紀錄的 time（row_key 第四段），新增用現在時間
+        old_parts = (data.get("row_key_old") or "").split("|", 3)
+        time_val = old_parts[3] if len(old_parts) == 4 and old_parts[3] else datetime.now().strftime("%H:%M:%S")
+
+        # 1. 寫入總表：若已存在同人、同關卡、同天、同時間的紀錄，則不做任何事 (保持連結)
         db_exec(
-            "INSERT INTO score_list (uid, task_id, test_date) VALUES (%s, %s, %s) "
+            "INSERT INTO score_list (uid, task_id, test_date, time) VALUES (%s, %s, %s, %s) "
             "ON DUPLICATE KEY UPDATE test_date = VALUES(test_date)",
-            (uid, task_id, test_date),
+            (uid, task_id, test_date, time_val),
         )
 
-        # 2. 寫入任務表：若已存在同人、同天的紀錄，則直接更新分數 (達成「取最新筆」)
+        # 2. 寫入任務表：若已存在同一筆 (uid, test_date, time)，則直接更新分數
         table = task_id_to_table(task_id)
         db_exec(
-            f"INSERT INTO `{table}` (uid, test_date, score) VALUES (%s, %s, %s) "
+            f"INSERT INTO `{table}` (uid, test_date, time, score) VALUES (%s, %s, %s, %s) "
             f"ON DUPLICATE KEY UPDATE score = VALUES(score)",
-            (uid, test_date, score),
+            (uid, test_date, time_val, score),
         )
 
         return jsonify({"ok": True, "msg": "紀錄已更新"})
