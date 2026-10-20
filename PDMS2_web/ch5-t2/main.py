@@ -16,6 +16,8 @@ PDMS-2 項目 23：解開鈕扣（跨機器後端計時 + 雙 YOLO 模型，單�
 共享計時表：MySQL `ch5_button_timer`（主鍵 uid + task_id，Ch5-t2 / Ch5-t3 共用，第一次執行自動建立）。
 DB 連線：環境變數 DB_HOST / DB_PORT / DB_USER / DB_PASSWORD / DB_NAME 優先，否則讀 PDMS2_web/.env。
 計時一律用 DB 伺服器時鐘（UNIX_TIMESTAMP(NOW(3))），start / stop 在哪台機器呼叫都不受本機時鐘誤差影響。
+evaluate 時 DB 連不上、或沒有本輪計時紀錄（未 start / 已評分過）不中斷評分：完成給 1 分，判定寫明「無計時紀錄，無法確認是否在 75 秒內」。
+run.py 可用子行程呼叫 start / stop / evaluate，或 import 後直接呼叫 run_start / run_stop / run_evaluate。
 """
 from __future__ import annotations
 
@@ -67,7 +69,9 @@ CLOTH_PAD_RATIO = 0.05            # 布料框外擴比例，避免邊緣的鈕�
 CLOTH_FALLBACK_FULL_IMAGE = True  # 沒抓到布料時：True = 改用全圖繼續評分；False = 直接 0 分
 NUM_TAPES = 3                     # 鈕扣條上的洞眼（膠帶）數量
 
-START_DELAY = 2.0                 # 按下「開始測驗」後幾秒才開始計時
+START_DELAY = 2.0                 # 按下「開始測驗」後幾秒才開始計時（已寫進 start_at，duration 已扣除，不可重扣）
+FALLBACK_ELAPSED: Optional[float] = None   # 沒有本輪計時紀錄時的秒數；None = 無法確認 ≦ 限時 → 完成給 1 分
+NO_TIMER_REASON = f"無計時紀錄，無法確認是否在 {TIME_LIMIT:.0f} 秒內"
 IMAGE_ROOTS = (PROJECT_DIR / "kid", Path.cwd() / "kid")   # 照片 kid/<uid>/<img_id>.<ext>
 IMAGE_EXTS = (".jpg", ".jpeg", ".png", ".bmp", ".webp")
 
@@ -75,13 +79,17 @@ ENV_PATHS = (PROJECT_DIR / ".env",)
 TIMER_TABLE = "ch5_button_timer"
 
 
-def score_task(button_count: int, tape_count: int, elapsed: float) -> Tuple[int, bool, str]:
+def score_task(button_count: int, tape_count: int, elapsed: Optional[float]) -> Tuple[int, bool, str]:
     """回傳 (分數, 最終狀態是否達成, 判定說明)。
     最終狀態未達成 → 0 分；達成且 <= 限時 → 2 分；超過限時 → 1 分（以「超過限時」判 1 分，避免整數秒之間的空窗）。
+    秒數先四捨五入到小數兩位，判定與顯示一致；elapsed 為 None（沒有本輪計時紀錄）→ 達成也只給 1 分。
     """
     if tape_count < NUM_TAPES:
         return 0, False, f"未完成：膠帶（洞眼）{tape_count}/{NUM_TAPES} 個"
     state = f"膠帶（洞眼）{tape_count} 個 ≧ {NUM_TAPES}，{DONE_LABEL}"
+    if elapsed is None:
+        return 1, True, f"{state}；{NO_TIMER_REASON}"
+    elapsed = round(elapsed, 2)
     if elapsed <= TIME_LIMIT:
         return 2, True, f"{state}；{elapsed:.2f} 秒 ≦ {TIME_LIMIT:.0f} 秒"
     return 1, True, f"{state}；{elapsed:.2f} 秒 > {TIME_LIMIT:.0f} 秒"
@@ -190,11 +198,13 @@ class TimerStore:
             (uid, TASK_ID))
         return self._get(uid)
 
-    def duration(self, uid: str) -> float:
-        """evaluate 用：讀取 stop 時算好的秒數；前端漏呼叫 stop 時以此刻停止（秒數會含拍照 / 上傳時間）。"""
+    def duration(self, uid: str) -> Optional[float]:
+        """evaluate 用：讀取 stop 時算好的秒數（start_at 已含 START_DELAY，此處不再重扣）。
+        沒有紀錄、或紀錄已評分過（重測沒按「開始測驗」，不可沿用舊的 start_at）→ None，由呼叫端改用 fallback。
+        前端漏呼叫 stop 時以此刻停止（秒數會含拍照 / 上傳時間）。"""
         row = self._get(uid)
-        if row is None:
-            raise ValueError(f"找不到 uid={uid} 的 {TASK_ID} 計時紀錄，請先按「開始測驗」")
+        if row is None or row["status"] not in ("started", "stopped"):
+            return None
         if row["duration"] is None:
             print("[警告] 尚未呼叫 stop，以評分當下停止計時", file=sys.stderr)
             row = self.stop(uid)
@@ -318,7 +328,7 @@ class EvalResult:
     image_path: str
     task_id: str
     item: int
-    elapsed_seconds: float
+    elapsed_seconds: Optional[float]        # None = 沒有本輪計時紀錄
     time_limit: float
     score: int
     passed_state: bool                      # 最終狀態是否達成（膠帶數足夠）
@@ -338,7 +348,7 @@ class EvalResult:
         return d
 
 
-def evaluate_image(image_path: Path, elapsed: float) -> EvalResult:
+def evaluate_image(image_path: Path, elapsed: Optional[float]) -> EvalResult:
     """照片 → cloth.pt 找布料框 → button.pt 以整張原圖抓 button / tape（只留布料框內）→ NMS 去重 → 給分 → 成果圖。
     不裁切放大：button.pt 以整張照片訓練，裁切後物件尺度與訓練不符會抓不到。
     成果圖存在原圖旁：kid/<uid>/<img_id>.jpg → kid/<uid>/<img_id>_result.jpg"""
@@ -432,6 +442,10 @@ def _draw_box(img: np.ndarray, box, color, label: str, thickness: int = 2) -> No
     cv2.putText(img, label, org, cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 1, cv2.LINE_AA)
 
 
+def fmt_elapsed(seconds: Optional[float]) -> str:
+    return "無計時紀錄" if seconds is None else f"{seconds:.2f} 秒"
+
+
 def render_result_image(res: EvalResult, img: np.ndarray) -> np.ndarray:
     """成果圖：上方資訊面板（項目、秒數、得分、判定、偵測數量）+ 下方原圖（布料範圍 + 物件框 + 圖例）。"""
     vis = img.copy()
@@ -452,7 +466,7 @@ def render_result_image(res: EvalResult, img: np.ndarray) -> np.ndarray:
     fs = max(18, w // 40)
     lines = [
         (f"{TITLE}　｜　{os.path.basename(res.image_path)}", (255, 255, 255), fs),
-        (f"總秒數：{res.elapsed_seconds:.2f} 秒（限時 {TIME_LIMIT:.0f} 秒）", (255, 255, 255), fs),
+        (f"總秒數：{fmt_elapsed(res.elapsed_seconds)}（限時 {TIME_LIMIT:.0f} 秒）", (255, 255, 255), fs),
         (f"得分：{res.score} 分", SCORE_COLOR[res.score], int(fs * 1.6)),
         (f"判定：{res.message}", (255, 230, 150), fs),
         (f"{cloth_text}　｜　鈕扣 {res.button_count} 個、膠帶 {res.tape_count} 個", (200, 200, 200), fs),
@@ -494,33 +508,77 @@ def _timer_json(row: dict) -> str:
     return json.dumps({k: row.get(k) for k in keys}, ensure_ascii=False)
 
 
+def open_timer_for_evaluate(uid: str) -> Tuple[Optional[TimerStore], Optional[float]]:
+    """evaluate 用：回傳 (計時表連線, 秒數)。DB 連不上或沒有本輪計時紀錄都不中斷評分，
+    改回傳 (None, FALLBACK_ELAPSED)，也不把結果寫回計時表（避免新分數和舊秒數混在同一筆）。"""
+    store = None
+    try:
+        store = TimerStore()
+        elapsed = store.duration(uid)
+        if elapsed is not None:
+            return store, elapsed
+        print(f"[警告] uid={uid} 沒有本輪的 {TASK_ID} 計時紀錄（未按「開始測驗」或已評分過），"
+              f"秒數改用 fallback：{FALLBACK_ELAPSED}", file=sys.stderr)
+    except Exception as e:
+        print(f"[警告] 讀取計時紀錄失敗，秒數改用 fallback：{FALLBACK_ELAPSED}（{type(e).__name__}: {e}）",
+              file=sys.stderr)
+    if store is not None:
+        store.conn.close()
+    return None, FALLBACK_ELAPSED
+
+
+def run_start(uid: str) -> dict:
+    """「開始測驗」按鈕：後端以 DB 伺服器時鐘記下開始時間，不收前端傳來的任何時間。"""
+    with TimerStore() as store:
+        row = store.start(uid)
+    print(f"[開始] uid={uid}，{START_DELAY:.0f} 秒後開始計時")
+    print(_timer_json(row))
+    return row
+
+
+def run_stop(uid: str) -> dict:
+    """「拍照 / 結束」按鈕：後端以 DB 伺服器時鐘記下結束時間並算出時間差（duration）。"""
+    with TimerStore() as store:
+        row = store.stop(uid)
+    print(f"[停止] uid={uid}，總秒數 {row['duration']:.2f}")
+    print(_timer_json(row))
+    return row
+
+
+def run_evaluate(uid: str, img_id: str) -> EvalResult:
+    """讀計時表的秒數 + 照片評分；沒有計時紀錄時不中斷（完成給 1 分，判定寫明 NO_TIMER_REASON）。"""
+    image_path = find_image(uid, img_id)   # 先確認照片存在，再動 DB（避免無照片時誤停計時）
+    store, elapsed = open_timer_for_evaluate(uid)
+    try:
+        res = evaluate_image(image_path, elapsed)
+        if res.score not in (0, 1, 2):
+            raise RuntimeError(f"分數異常：{res.score}")
+        if store is not None:
+            try:  # 寫入後 status='evaluated'，下次重測沒按「開始測驗」就不會沿用這筆 start_at
+                store.save_result(uid, img_id, res)
+            except Exception as e:
+                print(f"[警告] 評分結果寫入計時表失敗（分數照常回傳）：{e}", file=sys.stderr)
+    finally:
+        if store is not None:
+            store.conn.close()
+    print(f"[結果] 項目 {ITEM}｜{res.message}｜總秒數 {fmt_elapsed(res.elapsed_seconds)}｜score = {res.score}")
+    print(f"成果圖已儲存: {res.result_image}")
+    print(json.dumps(res.to_dict(), ensure_ascii=False))
+    return res
+
+
 def main(argv: List[str]) -> int:
     """回傳結束碼：start / stop = 0；evaluate = 分數 0 / 1 / 2。任何錯誤直接丟例外，由進入點轉成 EXIT_ERROR。"""
     if _IMPORT_ERROR is not None:
         raise _IMPORT_ERROR
     action, uid, img_id = parse_args(argv)
-
-    if action == "evaluate":
-        image_path = find_image(uid, img_id)   # 先確認照片存在，再動 DB（避免無照片時誤停計時）
-    with TimerStore() as store:
-        if action == "start":
-            print(f"[開始] uid={uid}，{START_DELAY:.0f} 秒後開始計時")
-            print(_timer_json(store.start(uid)))
-            return 0
-        if action == "stop":
-            row = store.stop(uid)
-            print(f"[停止] uid={uid}，總秒數 {row['duration']:.2f}")
-            print(_timer_json(row))
-            return 0
-
-        res = evaluate_image(image_path, store.duration(uid))
-        if res.score not in (0, 1, 2):
-            raise RuntimeError(f"分數異常：{res.score}")
-        store.save_result(uid, img_id, res)
-    print(f"[結果] 項目 {ITEM}｜{res.message}｜總秒數 {res.elapsed_seconds:.2f}｜score = {res.score}")
-    print(f"成果圖已儲存: {res.result_image}")
-    print(json.dumps(res.to_dict(), ensure_ascii=False))
-    return res.score
+    if action == "start":
+        run_start(uid)
+        return 0
+    if action == "stop":
+        run_stop(uid)
+        return 0
+    return run_evaluate(uid, img_id).score
 
 
 if __name__ == "__main__":
