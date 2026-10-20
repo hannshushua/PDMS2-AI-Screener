@@ -550,19 +550,29 @@ def _render_ch5_t1_result(data1: Optional[str]) -> str:
         # 放滿時遊戲立刻結束，最後一行進度與 bean_count 都停在 target-1
         n = target
 
-    # 每顆豆子的放入時間：顆數變多的那一秒
+    # 韌體記下的「同時丟入多顆，第 X 秒」，用來標出違規發生在哪一秒
+    multi_secs = [int(m.group(1)) for line in record.get("log") or []
+                  if (m := re.search(r"同時丟入多顆，第\s*(\d+)\s*秒", line.get("text", "")))]
+
+    # 每顆豆子的放入時間：顆數變多的那一秒；一秒內多了好幾顆就每顆都列出來並註明原因
     beans, last_count, last_sec = [], 0, 0
     for sec, _, count in ticks:
         if count > last_count:
-            beans.append((count, sec, sec - last_sec if beans else None))
-            last_count, last_sec = count, sec
+            note = ""
+            if count - last_count >= 2:
+                # 記錄行印的是判定當下經過的秒數，顆數要等下一行每秒進度才出現，會晚 0~2 秒
+                note = "同時丟入・違規" if any(0 <= sec - s <= 2 for s in multi_secs) else "快速連投"
+            for c in range(last_count + 1, count + 1):
+                beans.append((c, sec, sec - last_sec if beans else None, note))
+                last_sec = sec
+            last_count = count
     # 放滿最後一顆時遊戲立刻結束，Arduino 不會再印那一秒，用結束時間補上
     if not violation and duration is not None and n > last_count:
-        beans.append((n, duration, duration - last_sec if beans else None))
+        beans.append((n, duration, duration - last_sec if beans else None, ""))
 
     used = f"用時 {duration} 秒" if duration is not None else "用時不明"
     if violation:
-        criteria = f"違規：一次放入超過一顆，違規前已放入 {n} 顆（依目前設定判 0 分）"
+        criteria = f"違規：曾一次放入超過一顆，依規定判 0 分（放入 {n} 顆，{used}）"
     elif not ticks:
         criteria = f"log 不完整，無法對照標準（紀錄分數 {score}）"
     elif score == 2:
@@ -582,8 +592,8 @@ def _render_ch5_t1_result(data1: Optional[str]) -> str:
         f'<div class="bean-card"><div class="bean-label">結束原因</div><div class="bean-value" style="font-size:18px;color:{reason_color};">{escape(end_reason) or "—"}</div></div>'
     )
     bean_rows = "".join(
-        f"<tr><td>第 {c} 顆</td><td>第 {s} 秒</td><td>{'—' if gap is None else f'{gap} 秒'}</td></tr>"
-        for c, s, gap in beans
+        f"<tr><td>第 {c} 顆{f'（{note}）' if note else ''}</td><td>第 {s} 秒</td><td>{'—' if gap is None else f'{gap} 秒'}</td></tr>"
+        for c, s, gap, note in beans
     ) or '<tr><td colspan="3">沒有放入任何豆子</td></tr>'
     chart_data = json.dumps({
         "sec": [t[0] for t in ticks],

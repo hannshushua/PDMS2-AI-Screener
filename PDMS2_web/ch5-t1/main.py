@@ -254,10 +254,6 @@ def main(CAMERA_INDEX, UID):
                         # 每次進度更新都立刻寫檔，前端才看得到即時顆數與秒數
                         save_game_state(UID, game_state, force=True)
 
-                    if "違規" in line:
-                        game_state["warning"] = True
-                        save_game_state(UID, game_state, force=True)
-
                     # 記下結束原因（時間到 / 達成目標 / 違規），寫進紀錄
                     if "遊戲結束原因" in line:
                         reason_match = re.search(r"遊戲結束原因[：:]\s*(.+)", line)
