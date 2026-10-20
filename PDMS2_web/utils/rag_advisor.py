@@ -193,7 +193,7 @@ class PDMS2Advisor:
                 tasks = cur.fetchall()
                 for task in tasks:
                     table_name = task['task_name']
-                    cur.execute(f"SELECT score, test_date FROM `{table_name}` WHERE uid=%s ORDER BY test_date DESC LIMIT 1", (uid,))
+                    cur.execute(f"SELECT score, test_date FROM `{table_name}` WHERE uid=%s ORDER BY test_date DESC, time DESC LIMIT 1", (uid,))
                     row = cur.fetchone()
                     # score = -1 是分析失敗，不算這關的表現
                     if row and row['score'] != -1:
