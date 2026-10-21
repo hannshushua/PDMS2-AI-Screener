@@ -79,6 +79,5 @@ PDMS2_web/scripts/rag_test_report*.md
 /設計文件書_FMD_AI_Screener.pdf
 
 
-# 大模型不進 git（sam2 為 ultralytics 標準權重可自動下載；shape_det 未使用）
+# 大模型不進 git（sam2 為 ultralytics 標準權重可自動下載）
 PDMS2_web/models/sam2_b.pt
-PDMS2_web/models/shape_det.pt
