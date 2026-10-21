@@ -25,9 +25,6 @@ web.log
 !PDMS2_web/images/
 !PDMS2_web/images/*.jpg
 !PDMS2_web/images/*.png
-!PDMS2_web/images/icons/
-!PDMS2_web/images/icons/*.png
-!PDMS2_web/images/icons/*.jpg
 !PDMS2_web/images/chart/
 !PDMS2_web/images/chart/*.png
 

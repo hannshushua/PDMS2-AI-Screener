@@ -231,7 +231,7 @@
  */
 const ICON_BASE = "../images/";
 
-/** 各個任務 / 關卡的插圖（掛圖平塗風格；舊版亮面插圖仍保留在 images/icons/） */
+/** 各個任務 / 關卡的插圖（掛圖平塗風格） */
 const ICON_PATHS = {
   // 第一關：朱紅積木
   blocks_ai:    "chart/ch1-00-建造魔法道路.png",

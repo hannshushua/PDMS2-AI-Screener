@@ -43,7 +43,7 @@ body {
 
 ::selection { background: var(--ch2); color: var(--ink); }
 
-/* 背景：掛圖風格的童話王國；舊的 fairytale2.jpg 仍保留在 images/ */
+/* 背景：掛圖風格的童話王國 */
 .bg {
   position: fixed;
   inset: 0;
