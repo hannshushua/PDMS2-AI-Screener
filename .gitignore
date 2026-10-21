@@ -28,13 +28,8 @@ web.log
 !PDMS2_web/images/chart/
 !PDMS2_web/images/chart/*.png
 
-#追蹤 PDMS2_web/kid 內的素材（含子資料夾）
-!PDMS2_web/kid/
-!PDMS2_web/kid/**
-!PDMS2_web/kid/**/
-
-# 本地測試資料夾不追蹤
-PDMS2_web/kid/test*/
+# 受測者照片與紀錄屬於個資，只留在各機器本地，不進 git
+PDMS2_web/kid/
 
 # 追蹤 PDMS2_web/video 內的視頻檔案
 !PDMS2_web/video/
