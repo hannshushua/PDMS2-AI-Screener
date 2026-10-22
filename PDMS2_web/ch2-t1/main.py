@@ -11,8 +11,30 @@ ENV_PATH = BASE_DIR.parent / ".env"
 target_dir = BASE_DIR
 # 共用模組：prepare(分類前) + classify(分類)
 sys.path.insert(0, str(BASE_DIR.parent))
-from prepare import Preparer
-from classify import Classifier
+try:
+    from PDMS2_web.prepare import Preparer
+    from PDMS2_web.classify import Classifier, fmt_probs
+except ImportError:  # 直接在 PDMS2_web 底下跑 (上面已把 PDMS2_web 加進 sys.path)
+    from prepare import Preparer
+    from classify import Classifier, fmt_probs
+
+
+def _read_env_float(key):
+    """從 .env 讀正數設定，讀不到回傳 None"""
+    if not ENV_PATH.exists():
+        return None
+    for raw_line in ENV_PATH.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        k, v = line.split("=", 1)
+        if k.strip() == key:
+            try:
+                parsed = float(v.strip().strip('"').strip("'"))
+            except ValueError:
+                return None
+            return parsed if parsed > 0 else None
+    return None
 
 
 def return_score(score):
@@ -125,7 +147,31 @@ def main(img_path):
     # 單張處理
     print(f"\n=== 處理 {img_path} ===\n")
 
-    # 得出 px->cm（評分尺度，維持原本 A4 量測不變）
+    # prepare：paper_seg + SAM2 找紙張 -> 紙張 mask 範圍內用 shape_det 找圖形
+    #          (沒找到紙也照樣整張找 shape，找到就切下來繼續) -> binary
+    print("\n==prepare 前處理==")
+    prep = Preparer()
+    stem = os.path.splitext(os.path.basename(img_path))[0]
+    r = prep.prepare(img_path, target_dir / "ready", stem)
+    if not r["ok"]:
+        print(f"未圈到圖形（{r['reason']}）")
+        return -1, r.get("vis")
+
+    # classify：只看 circle 的機率（不跟其他類比最高），歪圓靠圓度保底
+    print("\n==classify 分類==")
+    clf = Classifier()
+    t = clf.check_target(r["binary_bgr"], TARGET)
+    print(f"{img_path} → {TARGET} {t['p']*100:.2f}%  ({t['why']})  [{fmt_probs(t['probs'])}]")
+
+    # 非目標形狀 -> 0 分
+    if not t["ok"]:
+        img = cv2.imread(r["color_path"])
+        cv2.putText(img, "Other !", (30, 50), cv2.FONT_HERSHEY_SIMPLEX,
+                    0.6, (0, 0, 255), 2)
+        print(f"{img_path} 不是 {TARGET}!")
+        return 0, img
+
+    # 得出 px->cm（評分尺度，維持原本 A4 量測）；A4 輪廓找不到就改用 .env 的 PDMS2_PX2CM
     try:
         pixel_per_cm, _, cropped_path = get_pixel_per_cm_from_a4(
             img_path,
@@ -135,31 +181,11 @@ def main(img_path):
         )
         print(f"{img_path} pixel_per_cm = {pixel_per_cm}")
     except ValueError as e:
-        print(f"跳過 {img_path}：{e}")
-        return -1, cv2.imread(img_path)
-
-    # prepare：找紙張 + CV 圈選 + binary
-    print("\n==prepare 前處理==")
-    prep = Preparer()
-    stem = os.path.splitext(os.path.basename(img_path))[0]
-    r = prep.prepare(img_path, target_dir / "ready", stem)
-    if not r["ok"]:
-        print(f"未圈到圖形（{r['reason']}）")
-        return -1, r.get("vis")
-
-    # classify：4 類分類
-    print("\n==classify 分類==")
-    clf = Classifier()
-    label, conf = clf.classify(r["binary_bgr"])
-    print(f"{img_path} → {label} ({conf*100:.2f}%)")
-
-    # 非目標形狀 -> 0 分
-    if label != TARGET:
-        img = cv2.imread(r["color_path"])
-        cv2.putText(img, "Other !", (30, 50), cv2.FONT_HERSHEY_SIMPLEX,
-                    0.6, (0, 0, 255), 2)
-        print(f"{img_path} is {label}!")
-        return 0, img
+        pixel_per_cm = _read_env_float("PDMS2_PX2CM")
+        if pixel_per_cm is None:
+            print(f"A4 量測失敗（{e}），.env 也沒有 PDMS2_PX2CM，無法評分")
+            return -1, r.get("vis")
+        print(f"A4 量測失敗（{e}），改用 .env 備用比例 pixel_per_cm = {pixel_per_cm}")
 
     # 圓形 -> 計算端點距離評分（評分邏輯不變）
     # 注意：check_point 內部用全域 Otsu，直接吃彩色 crop 會把底部陰影當筆跡→骨架長毛刺。
