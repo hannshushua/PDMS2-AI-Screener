@@ -272,7 +272,9 @@ def analyze_image_side(img_path, model):
 
     if len(centroids) >= 2:
         gap_checker = CheckGap(gap_ratio=GAP_RATIO)
-        gap_pairs = gap_checker.check(layers, avg_width)
+        # 用 SAM 遮罩的實際邊緣量縫隙 (積木寬度不一時，中心距 - 積木寬會量錯)
+        centroid_masks = {item["centroid"]: item["mask"] for item in mask_data}
+        gap_pairs = gap_checker.check(layers, avg_width, masks=centroid_masks)
         IS_GAP = (len(gap_pairs) // 2) >= MIN_GAP_PAIRS
 
         if len(gap_pairs) > 0:
