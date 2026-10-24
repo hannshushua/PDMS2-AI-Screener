@@ -106,7 +106,14 @@
         .form-grid .field:nth-child(1) { --step: "2"; --step-c: var(--ch4); background: var(--ch4-tint); }
         .form-grid .field:nth-child(2) { --step: "3"; --step-c: var(--ch3); background: var(--ch3-tint); }
         .calibration-panel.calibrate { --step: "4"; --step-c: var(--ch2); --step-on: var(--ink); background: var(--ch2-tint); }
-        .calibration-panel.other-device { --step: "5"; --step-c: var(--ch5); background: var(--ch5-tint); }
+        .calibration-panel.ch1plan { --step: "5"; --step-c: var(--ch1); background: var(--ch1-tint); }
+        .calibration-panel.other-device { --step: "6"; --step-c: var(--ch5); background: var(--ch5-tint); }
+        .ch1plan .field { border: var(--rule) solid var(--ink); }
+        #ch1PlanSummary { white-space: pre-line; }
+        .plan-warnings { margin: 0; padding-left: 20px; color: #8A5300; font-weight: 700; line-height: 1.6; }
+        .plan-warnings[hidden] { display: none; }
+        .plan-image { justify-self: start; max-width: 100%; max-height: 360px; border: var(--rule) solid var(--ink); background: #000; }
+        .plan-image[hidden] { display: none; }
         .calibration-grid .field { background: var(--paper); }
         .device-note { margin: 0; color: var(--ink-soft); font-size: 15px; line-height: 1.7; }
         #deviceSummary { color: var(--ink); font-size: 16px; font-weight: 700; }
@@ -449,6 +456,26 @@
                 <button id="saveBtn" class="btn primary fat" data-icon="save">儲存設定</button>
                 <button id="swapBtn" class="btn ghost fat" data-icon="swap">交換上方與旁邊</button>
                 <a href="/html/start.html" class="btn ghost fat" data-icon="left">回開始頁</a>
+            </div>
+
+            <div class="calibration-panel ch1plan">
+                <div class="calibration-head">
+                    <div>
+                        <h2 class="device-title">ch1-t1 串積木校正</h2>
+                        <p class="device-note">量繩子原本的長度、繩寬和積木大小，ch1-t1 評分時用來判斷積木有沒有穿在繩上。校正在分析伺服器上執行並直接存在那裡，不用再按「儲存設定」。</p>
+                    </div>
+                </div>
+                <div class="field">
+                    <small>① 切到「上方」鏡頭並開啟預覽　② 桌上放<b>完整的繩子 + 6 顆積木</b>：積木放在旁邊，不要穿、不要壓到繩子　③ 按下校正，會連拍 3 張取中位數。<br>鏡頭高度、裁切區域或繩子換了，都要重新校正。</small>
+                    <div class="preview-actions">
+                        <button id="calibrateCh1Btn" class="btn secondary fat" data-icon="camera" type="button">以目前上方預覽校正 ch1-t1</button>
+                        <span class="measure-wait" id="calibrateCh1Wait" role="status" hidden>分析伺服器正在跑模型，約需 10–60 秒…</span>
+                    </div>
+                    <div class="status" id="ch1PlanStatus" role="status" aria-live="polite"></div>
+                    <div class="summary" id="ch1PlanSummary">正在讀取目前的 ch1-t1 校正…</div>
+                    <ul class="plan-warnings" id="ch1PlanWarnings" hidden></ul>
+                    <img id="ch1PlanImage" class="plan-image" alt="ch1-t1 校正結果：黃色是積木，紅線是繩子中心線" hidden />
+                </div>
             </div>
 
             <div class="calibration-panel other-device">
@@ -1054,6 +1081,112 @@
                 done();
             }
         });
+
+        // ===== ch1-t1 串積木校正：連拍幾張上方畫面 -> 分析伺服器跑 plan_ch1_t1.py -> 存在伺服器 =====
+        const CH1_CALIB_FRAMES = 3;
+        const calibrateCh1Btn = document.getElementById("calibrateCh1Btn");
+        const calibrateCh1Wait = document.getElementById("calibrateCh1Wait");
+        const ch1PlanStatus = document.getElementById("ch1PlanStatus");
+        const ch1PlanSummary = document.getElementById("ch1PlanSummary");
+        const ch1PlanWarnings = document.getElementById("ch1PlanWarnings");
+        const ch1PlanImage = document.getElementById("ch1PlanImage");
+
+        function setCh1Status(text, kind) {
+            ch1PlanStatus.textContent = text;
+            ch1PlanStatus.className = kind ? `status ${kind}` : "status";
+        }
+
+        function renderCh1Warnings(warnings) {
+            ch1PlanWarnings.replaceChildren();
+            (warnings || []).forEach((w) => {
+                const li = document.createElement("li");
+                li.textContent = String(w).replace(/^\s*\[(WARN|ERROR)\]\s*/, "");
+                ch1PlanWarnings.appendChild(li);
+            });
+            ch1PlanWarnings.hidden = ch1PlanWarnings.children.length === 0;
+        }
+
+        function renderCh1Plan(plan, source, resultImage) {
+            if (resultImage) {
+                ch1PlanImage.src = `data:image/jpeg;base64,${resultImage}`;
+                ch1PlanImage.hidden = false;
+            } else {
+                ch1PlanImage.hidden = true;
+            }
+            if (!plan) {
+                ch1PlanSummary.textContent = "這台還沒做過 ch1-t1 校正。沒有校正時，評分會改用每張照片自己量的繩寬，繩長對照也會跳過。";
+                return;
+            }
+            const num = (v, d = 0) => (Number.isFinite(Number(v)) ? Number(v).toFixed(d) : "—");
+            const t = plan.thresholds || {};
+            const size = Array.isArray(plan.image_size) ? plan.image_size.join(" × ") : "—";
+            const where = source === "server" ? "分析伺服器" : "本機副本（目前連不到分析伺服器）";
+            ch1PlanSummary.textContent = [
+                `校正時間：${plan.created || "—"}（${where}）`,
+                `繩子：長度 ${num(plan.rope_len)} px、繩寬 ${num(plan.rope_width, 1)} px`,
+                `積木：${plan.n_blocks ?? "—"} 顆、邊長 ${num(plan.block_side, 1)} px，每顆約擋住 ${num(plan.per_block_len)} px 繩長`,
+                `穿上門檻：正放 ${num(t.strung_min_px)} px ～ 斜放 ${num(t.strung_max_px)} px，貼在一起 ≤ ${num(t.touch_px)} px`,
+                `照片大小：${size}`,
+            ].join("\n");
+        }
+
+        async function loadCh1Plan() {
+            try {
+                const response = await fetch("/camera-settings/ch1-t1-plan");
+                const result = await response.json();
+                if (!response.ok || !result.success) throw new Error(result.error || "讀取失敗");
+                renderCh1Plan(result.plan, result.source, result.result_image);
+                if (result.source === "local") {
+                    setCh1Status(`連不到分析伺服器，下面顯示的是本機副本：${result.server_error || ""}`, "warn");
+                }
+            } catch (error) {
+                ch1PlanSummary.textContent = `讀取 ch1-t1 校正失敗：${error.message}`;
+            }
+        }
+
+        calibrateCh1Btn.addEventListener("click", async () => {
+            if (previewTarget !== PREVIEW_TOP) {
+                setCh1Status("請先切到上方鏡頭並開啟預覽，再進行 ch1-t1 校正。", "warn");
+                return;
+            }
+            const done = beginMeasureBusy(calibrateCh1Btn, calibrateCh1Wait);
+            renderCh1Warnings([]);
+            try {
+                const images = [];
+                for (let i = 0; i < CH1_CALIB_FRAMES; i++) {
+                    if (i > 0) await new Promise((r) => setTimeout(r, 300));
+                    setCh1Status(`正在拍第 ${i + 1}/${CH1_CALIB_FRAMES} 張…`, "ok");
+                    const frameResponse = await fetch("/opencv-camera/frame");
+                    const frameResult = frameResponse.ok ? await frameResponse.json() : {};
+                    if (!frameResult.success || !frameResult.image) throw new Error("讀取目前預覽畫面失敗");
+                    images.push(frameResult.image);
+                }
+
+                setCh1Status("已拍好，分析伺服器校正中…", "ok");
+                const response = await fetch("/camera-settings/calibrate-ch1-t1", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ images, blocks: 6 }),
+                });
+                const result = await response.json();
+                renderCh1Warnings(result.warnings);
+                if (!response.ok || !result.success) throw new Error(result.error || "校正失敗");
+
+                renderCh1Plan(result.plan, result.source, result.result_image);
+                const warned = (result.warnings || []).length > 0;
+                setCh1Status(
+                    warned ? "校正完成並已存到分析伺服器，但有警告，請確認下方說明後視需要重新校正。"
+                           : "校正完成，已存到分析伺服器，之後 ch1-t1 評分會使用這組數值。",
+                    warned ? "warn" : "ok",
+                );
+            } catch (error) {
+                setCh1Status(`ch1-t1 校正失敗：${error.message}`, "err");
+            } finally {
+                done();
+            }
+        });
+
+        loadCh1Plan();
 
         swapBtn.addEventListener("click", () => {
             const next = { top: Number.parseInt(sideCamera.value, 10), side: Number.parseInt(topCamera.value, 10) };

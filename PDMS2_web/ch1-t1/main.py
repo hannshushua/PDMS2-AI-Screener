@@ -34,11 +34,15 @@ from pathlib import Path
 #        (正放 = 邊長/2，繩子走對角線 = 邊長 x 0.71，依積木角度 + 附近繩子方向算)
 #        門檻 = 半弦長 + 繩寬 + 0.1 邊長；兩顆貼在一起 (間距 <= 2 倍繩寬) 的改量到「繩子 + 已穿上積木」
 #   4. 長度法: (校正時的繩長 L0 - 現在看得到的繩長) / 每顆擋掉的長度 = 繩上積木數 (只印出來對照，不計分)
-# 校正值 (繩長、繩寬、積木邊長...) 由 plan_ch1_t1.py 產生 plan_ch1_t1.json，放在這支程式旁邊
+# 校正值 (繩長、繩寬、積木邊長...) 由 plan_ch1_t1.py 產生:
+#   設定頁校正 -> 分析伺服器存成 plans/<machine_id>.json (MacWeb 分析時帶 PDMS2_MACHINE_ID，讀那台現場機自己的)
+#   直接跑 plan_ch1_t1.py -> plan_ch1_t1.json (找不到 plans/<machine_id>.json 時用這個)
 CONF = 0.85              # 積木 YOLO 信心值
 LINE_CONF = 0.5         # 繩子 YOLO 信心值
 BASE_DIR = Path(__file__).resolve().parent
 PLAN_PATH = BASE_DIR / "plan_ch1_t1.json"
+PLAN_DIR = BASE_DIR / "plans"
+ENV_PATH = BASE_DIR.parent / ".env"
 
 # ================== 初始化模型 ==================
 device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -79,13 +83,37 @@ def return_score(score):
 
 # ================== 校正檔 ==================
 
-def load_plan(path=PLAN_PATH):
-    """讀 plan_ch1_t1.json；沒有就回傳 {} (改用當張照片的繩寬，長度法跳過)"""
+def _machine_id():
+    """遠端分析時 MacWeb 會帶入現場機的 ID；本機執行就讀 .env 的 MACHINE_ID"""
+    machine_id = os.environ.get("PDMS2_MACHINE_ID", "").strip()
+    if machine_id:
+        return machine_id
+    try:
+        for line in ENV_PATH.read_text(encoding="utf-8").splitlines():
+            if line.strip().startswith("MACHINE_ID="):
+                return line.split("=", 1)[1].strip().strip('"').strip("'")
+    except OSError:
+        pass
+    return ""
+
+def plan_path():
+    """優先用這台現場機在設定頁做的校正 plans/<machine_id>.json，沒有才用 plan_ch1_t1.json"""
+    machine_id = _machine_id()
+    if machine_id and all(ch.isalnum() or ch == "-" for ch in machine_id):
+        path = PLAN_DIR / f"{machine_id}.json"
+        if path.exists():
+            return path
+    return PLAN_PATH
+
+def load_plan(path=None):
+    """讀校正檔；沒有就回傳 {} (改用當張照片的繩寬，長度法跳過)"""
+    path = path or plan_path()
+    print(f"[DEBUG] 校正檔: {path}", flush=True)
     try:
         with open(path, "r", encoding="utf-8") as f:
             return json.load(f)
     except FileNotFoundError:
-        print(f"[WARN] 找不到校正檔 {path}，請先跑 plan_ch1_t1.py；繩寬改用這張照片量的，長度法跳過", flush=True)
+        print(f"[WARN] 找不到校正檔 {path}，請先在設定頁做 ch1-t1 校正；繩寬改用這張照片量的，長度法跳過", flush=True)
     except json.JSONDecodeError as e:
         print(f"[WARN] 校正檔格式錯誤 {path}: {e}", flush=True)
     return {}
@@ -361,7 +389,7 @@ def score_from_image(img_path, conf=CONF):
     plan = load_plan()
     if plan.get("image_size") and list(plan["image_size"]) != [img.shape[1], img.shape[0]]:
         print(f"[WARN] 照片大小 {img.shape[1]}x{img.shape[0]} 跟校正時 {plan['image_size']} 不一樣，"
-              f"ROI 或解析度可能改過，請重跑 plan_ch1_t1.py", flush=True)
+              f"ROI 或解析度可能改過，請在設定頁重新做 ch1-t1 校正", flush=True)
 
     cube_boxes, masks, rope = analyze(img, conf=conf)
     m = rope_measure(rope)

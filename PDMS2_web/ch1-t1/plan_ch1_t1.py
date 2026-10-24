@@ -111,7 +111,7 @@ def calibrate(images, args, source):
         print(f"  [{i + 1}/{len(images)}] 積木={r['n_blocks']}  邊長={r['side']:.1f}  繩長={r['length']:.0f}  "
               f"面積={r['area']}  段數={r['segs']}  繩寬={r['width']:.1f}")
         if r["on_rope"]:
-            print(f"  [WARN] 有 {r['on_rope']} 顆積木壓在繩子上 / 靠太近 (黃色以外的)，繩長會被低估，請把積木移開一點")
+            print(f"  [WARN] 有 {r['on_rope']} 顆積木壓在繩子上 / 靠太近 (結果圖上綠色的)，繩長會被低估，請把積木移開一點")
         if r["segs"] > 1:
             print(f"  [WARN] 繩子斷成 {r['segs']} 段，可能有東西擋住或繩子沒偵測完整")
         rows.append(r)

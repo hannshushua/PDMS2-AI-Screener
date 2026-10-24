@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import base64
+import json
 import logging
 import os
 import re
@@ -8,6 +10,7 @@ import hashlib
 import shutil
 import subprocess
 import sys
+import tempfile
 
 from pathlib import Path
 from datetime import date, datetime
@@ -756,6 +759,114 @@ def api_submit_analysis():
     except Exception as e:
         logger.exception("[Submit] Analysis error: %s", e)
         return jsonify({"ok": False, "msg": f"分析失敗: {e}"}), 500
+
+
+# ── ch1-t1 校正 (現場機設定頁呼叫) ───────────────────────────────────────────
+# 現場機把上方鏡頭畫面 (完整繩子 + 積木放旁邊) 傳過來，這裡跑 plan_ch1_t1.py，
+# 結果存成 PDMS2_web/ch1-t1/plans/<machine_id>.json；
+# 之後分析 ch1-t1 時 run_remote_analysis 會帶 PDMS2_MACHINE_ID，main.py 就讀那台現場機自己的校正
+MACHINE_ID_PATTERN = re.compile(r"^[0-9A-Za-z-]{8,64}$")
+CH1_T1_DIR = ANALYSIS_ROOT / "ch1-t1"
+CH1_T1_PLAN_DIR = CH1_T1_DIR / "plans"
+CH1_T1_MAX_IMAGES = 5
+
+
+def _ch1_t1_plan_response(machine_id: str) -> dict:
+    plan_path = CH1_T1_PLAN_DIR / f"{machine_id}.json"
+    if not plan_path.exists():
+        return {"ok": True, "plan": None}
+    with open(plan_path, "r", encoding="utf-8") as f:
+        plan = json.load(f)
+    result_path = CH1_T1_PLAN_DIR / f"{machine_id}_result.jpg"
+    result_image = base64.b64encode(result_path.read_bytes()).decode("ascii") if result_path.exists() else None
+    return {"ok": True, "plan": plan, "result_image": result_image}
+
+
+@app.get("/api/calibrate/ch1-t1")
+def api_get_ch1_t1_plan():
+    """查某台現場機目前的 ch1-t1 校正"""
+    machine_id = (request.args.get("machine_id") or "").strip()
+    if not MACHINE_ID_PATTERN.match(machine_id):
+        return jsonify({"ok": False, "msg": "無效的 machine_id"}), 400
+    try:
+        return jsonify(_ch1_t1_plan_response(machine_id))
+    except Exception as e:
+        logger.exception("[Calibrate] 讀取 ch1-t1 校正失敗: %s", e)
+        return jsonify({"ok": False, "msg": f"讀取校正失敗: {e}"}), 500
+
+
+@app.post("/api/calibrate/ch1-t1")
+def api_calibrate_ch1_t1():
+    """接收 1~5 張上方鏡頭畫面，跑 plan_ch1_t1.py，存成這台現場機的校正"""
+    machine_id = (request.form.get("machine_id") or "").strip()
+    files = [f for f in request.files.getlist("images") if f.filename]
+    try:
+        blocks = int(request.form.get("blocks") or 6)
+    except ValueError:
+        blocks = 6
+
+    if not MACHINE_ID_PATTERN.match(machine_id):
+        return jsonify({"ok": False, "msg": "無效的 machine_id"}), 400
+    if not 1 <= len(files) <= CH1_T1_MAX_IMAGES:
+        return jsonify({"ok": False, "msg": f"需要 1~{CH1_T1_MAX_IMAGES} 張影像"}), 400
+    script_path = CH1_T1_DIR / "plan_ch1_t1.py"
+    if not script_path.exists():
+        return jsonify({"ok": False, "msg": "伺服器上找不到 ch1-t1/plan_ch1_t1.py，請先更新程式"}), 404
+
+    CH1_T1_PLAN_DIR.mkdir(parents=True, exist_ok=True)
+    env = os.environ.copy()
+    env["PYTHONIOENCODING"] = "utf-8"
+    env["PYTHONUTF8"] = "1"
+
+    # 先寫到暫存資料夾，成功才蓋掉舊的校正，失敗時保留上一次的結果
+    with tempfile.TemporaryDirectory(prefix="ch1_plan_") as tmp:
+        tmp_dir = Path(tmp)
+        image_paths = []
+        for i, file in enumerate(files):
+            if get_extension(file.filename) not in ALLOWED_EXTENSIONS:
+                return jsonify({"ok": False, "msg": f"不允許的副檔名: {file.filename}"}), 400
+            path = tmp_dir / f"frame_{i + 1}.jpg"
+            file.save(path)
+            image_paths.append(str(path))
+
+        tmp_plan = tmp_dir / "plan.json"
+        cmd = [sys.executable, str(script_path), "--image", *image_paths,
+               "--blocks", str(blocks), "--out", str(tmp_plan)]
+        logger.info("[Calibrate] ch1-t1 machine_id=%s images=%d", machine_id, len(image_paths))
+        try:
+            proc = subprocess.run(cmd, cwd=ANALYSIS_ROOT, env=env, capture_output=True, text=True,
+                                  encoding="utf-8", errors="replace", timeout=600)
+        except subprocess.TimeoutExpired:
+            return jsonify({"ok": False, "msg": "校正超過 10 分鐘沒有完成"}), 504
+
+        lines = [l for l in proc.stdout.splitlines() if l.strip()]
+        for line in lines:
+            logger.info("[Calibrate][stdout] %s", line)
+        # 每張都會印一次同樣的警告，去掉重複的
+        warnings = list(dict.fromkeys(l.strip() for l in lines if "[WARN]" in l or "[ERROR]" in l))
+
+        if proc.returncode != 0 or not tmp_plan.exists():
+            tail = (proc.stderr or "").strip().splitlines()[-3:]
+            logger.error("[Calibrate] ch1-t1 失敗 (exit=%s): %s", proc.returncode, " | ".join(tail))
+            msg = warnings[-1] if warnings else (tail[-1] if tail else f"exit code {proc.returncode}")
+            return jsonify({"ok": False, "msg": f"校正失敗: {msg}", "warnings": warnings}), 500
+
+        with open(tmp_plan, "r", encoding="utf-8") as f:
+            plan = json.load(f)
+        plan["machine_id"] = machine_id
+        plan["source"] = "setting page"
+        with open(CH1_T1_PLAN_DIR / f"{machine_id}.json", "w", encoding="utf-8") as f:
+            json.dump(plan, f, indent=2, ensure_ascii=False)
+        for suffix in (".jpg", "_result.jpg"):
+            src = tmp_dir / f"plan{suffix}"
+            if src.exists():
+                shutil.copyfile(src, CH1_T1_PLAN_DIR / f"{machine_id}{suffix}")
+
+    logger.info("[Calibrate] ch1-t1 完成: machine_id=%s L0=%s blocks=%s",
+                machine_id, plan.get("rope_len"), plan.get("n_blocks"))
+    response = _ch1_t1_plan_response(machine_id)
+    response["warnings"] = warnings
+    return jsonify(response)
 
 
 def _faststart_mp4(path: Path) -> None:

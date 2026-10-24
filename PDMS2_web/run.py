@@ -1165,6 +1165,89 @@ def measure_standard_area_from_frame():
         return jsonify({"success": False, "error": str(e)}), 500
 
 
+# ch1-t1 校正：模型在分析伺服器 (MacWeb) 上跑，結果存在伺服器的 ch1-t1/plans/<machine_id>.json，
+# 分析 ch1-t1 時伺服器依 machine_id 讀這台現場機自己的校正；本機也留一份 plan_ch1_t1.json 方便本機測試
+CH1_T1_PLAN_PATH = ROOT / "ch1-t1" / "plan_ch1_t1.json"
+
+
+def _macweb_calibrate_url() -> str:
+    return f"{_macweb_base_url().rstrip('/')}/api/calibrate/ch1-t1"
+
+
+def _read_local_ch1_t1_plan():
+    try:
+        with open(CH1_T1_PLAN_PATH, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return None
+
+
+@app.get("/camera-settings/ch1-t1-plan")
+def get_ch1_t1_plan():
+    """目前的 ch1-t1 校正：先問分析伺服器，連不到才看本機那份"""
+    try:
+        resp = requests.get(_macweb_calibrate_url(), params={"machine_id": _get_machine_id()}, timeout=5)
+        payload = resp.json()
+        if resp.ok and payload.get("ok"):
+            return jsonify({"success": True, "source": "server", "plan": payload.get("plan"),
+                            "result_image": payload.get("result_image")})
+        server_error = payload.get("msg") or f"HTTP {resp.status_code}"
+    except Exception as e:
+        server_error = str(e)
+    return jsonify({"success": True, "source": "local", "plan": _read_local_ch1_t1_plan(),
+                    "server_error": server_error})
+
+
+@app.post("/camera-settings/calibrate-ch1-t1")
+def calibrate_ch1_t1():
+    """設定頁傳來的上方鏡頭畫面 (完整繩子 + 積木放旁邊) 轉給分析伺服器校正"""
+    try:
+        data = request.get_json() or {}
+        images = data.get("images") or []
+        if not 1 <= len(images) <= 5:
+            return jsonify({"success": False, "error": "需要 1~5 張影像"}), 400
+
+        files = []
+        for i, image_data in enumerate(images):
+            image_data = (image_data or "").strip()
+            if "," in image_data:
+                image_data = image_data.split(",", 1)[1]
+            files.append(("images", (f"frame_{i + 1}.jpg", base64.b64decode(image_data), "image/jpeg")))
+
+        machine_id = _get_machine_id()
+        write_to_console(f"[設定] ch1-t1 校正：送 {len(files)} 張到 {_macweb_calibrate_url()} (machine_id={machine_id})", "INFO")
+        try:
+            resp = requests.post(
+                _macweb_calibrate_url(),
+                data={"machine_id": machine_id, "blocks": int(data.get("blocks") or 6)},
+                files=files,
+                timeout=600,
+            )
+        except requests.RequestException as e:
+            return jsonify({"success": False, "error": f"連不到分析伺服器 {_macweb_base_url()}：{e}"}), 502
+
+        try:
+            payload = resp.json()
+        except ValueError:
+            return jsonify({"success": False, "error": f"分析伺服器回應格式錯誤 (HTTP {resp.status_code})，"
+                                                       "可能還沒更新到有校正功能的版本"}), 502
+        warnings = payload.get("warnings") or []
+        if not resp.ok or not payload.get("ok") or not payload.get("plan"):
+            return jsonify({"success": False, "error": payload.get("msg") or f"HTTP {resp.status_code}",
+                            "warnings": warnings}), 502
+
+        plan = payload["plan"]
+        with open(CH1_T1_PLAN_PATH, "w", encoding="utf-8") as f:
+            json.dump(plan, f, indent=2, ensure_ascii=False)
+        write_to_console(f"[設定] ch1-t1 校正完成：L0={plan.get('rope_len')} 繩寬={plan.get('rope_width')} "
+                         f"積木={plan.get('n_blocks')} 邊長={plan.get('block_side')}", "INFO")
+        return jsonify({"success": True, "source": "server", "plan": plan, "warnings": warnings,
+                        "result_image": payload.get("result_image")})
+    except Exception as e:
+        write_to_console(f"[設定] ch1-t1 校正失敗: {e}\n{traceback.format_exc()}", "ERROR")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
 clear_console_log()
 setup_console_logging()
 app.logger.disabled = True

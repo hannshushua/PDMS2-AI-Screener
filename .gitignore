@@ -81,3 +81,10 @@ PDMS2_web/scripts/rag_test_report*.md
 
 # 大模型不進 git（sam2 為 ultralytics 標準權重可自動下載）
 PDMS2_web/models/sam2_b.pt
+
+# ch1-t1 校正結果 (每台現場機各自量，不進版控)
+PDMS2_web/ch1-t1/plans/
+PDMS2_web/ch1-t1/plan_ch1_t1.json
+PDMS2_web/ch1-t1/plan_ch1_t1.jpg
+PDMS2_web/ch1-t1/plan_ch1_t1_result.jpg
+PDMS2_web/ch1-t1/main.py.bak
