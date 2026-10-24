@@ -10,7 +10,7 @@ ROOT = Path(__file__).parent.parent.resolve()
 sys.path.append(str(ROOT))
 sys.path.append(str(ROOT.parent))
 
-from utils.rag_advisor import PDMS2Advisor, advisor
+from PDMS2_web.utils.rag_advisor import PDMS2Advisor, advisor
 
 # Load environment variables
 load_dotenv(ROOT / ".env")

@@ -12,8 +12,12 @@ target_dir = os.path.join(BASE_DIR.parent, "ch2-t3")
 ENV_PATH = BASE_DIR.parent / ".env"
 # 共用模組：prepare(分類前) + classify(分類)
 sys.path.insert(0, str(BASE_DIR.parent))
-from prepare import Preparer
-from classify import Classifier
+try:
+    from PDMS2_web.prepare import Preparer
+    from PDMS2_web.classify import Classifier, fmt_probs
+except ImportError:  # 直接在 PDMS2_web 底下跑 (上面已把 PDMS2_web 加進 sys.path)
+    from prepare import Preparer
+    from classify import Classifier, fmt_probs
 
 def _read_env_float(key):
     if not ENV_PATH.exists():
@@ -137,37 +141,8 @@ def main(img_path):
     TARGET = "cross"  # ch2-t3 目標形狀
     # ==參數==#
 
-    # 得出 px->cm
-    try:
-        pixel_per_cm, _, cropped_path = get_pixel_per_cm_from_a4(
-            img_path,
-            show_debug=False,  # 關掉視覺化避免卡住
-            save_cropped=True,
-            output_folder=os.path.join(target_dir, "cropped_a4"),
-        )
-        print(f"{img_path} 動態計算比例 pixel_per_cm = {pixel_per_cm}")
-    except ValueError as e:
-        print(f"⚠️ 動態計算比例失敗 ({e})，準備改用 .env 備用比例")
-        try:
-            pixel_per_cm = _read_env_float("PDMS2_PX2CM")
-        except Exception as env_e:
-            img = cv2.imread(img_path)
-            print(f"❌ 嚴重錯誤: 動態計算與 .env 備案皆失敗 -> {env_e}")
-            return -1, img
-        cropped_path = img_path  # 若裁切失敗，直接使用原圖路徑
-        print(f"{img_path} 備用比例 pixel_per_cm = {pixel_per_cm}")
-
-    
-    # 參數要改
-    # 注意：CrossScorer 要的是「每像素幾公分」，這裡算出來的是「每公分幾像素」，必須取倒數
-    cs = CrossScorer(
-        cm_per_pixel=1.0 / pixel_per_cm,
-        angle_min=70.0,
-        angle_max=110.0,
-        max_spread_cm=0.6,
-    )
-    
-    # prepare：找紙張 + CV 圈選 + binary
+    # prepare：paper_seg + SAM2 找紙張 -> 紙張 mask 範圍內用 shape_det 找圖形
+    #          (沒找到紙也照樣整張找 shape，找到就切下來繼續) -> binary
     print(f"\n=== 處理 {img_path} ===\n")
     print("\n==prepare 前處理==")
     prep = Preparer()
@@ -177,14 +152,43 @@ def main(img_path):
         print(f"未圈到圖形（{r['reason']}）")
         return SCORE, r.get("vis")
 
-    # classify：4 類分類
+    # classify：只看 cross 的機率（不跟其他類比最高）
     print("\n==classify 分類==")
     clf = Classifier()
-    label, conf = clf.classify(r["binary_bgr"])
-    print(f"{img_path} → {label} ({conf*100:.2f}%)")
+    t = clf.check_target(r["binary_bgr"], TARGET)
+    print(f"{img_path} → {TARGET} {t['p']*100:.2f}%  ({t['why']})  [{fmt_probs(t['probs'])}]")
 
     # 十字 -> CrossScorer 評分（評分邏輯不變，吃 binary crop）
-    if label == TARGET:
+    if t["ok"]:
+        # 得出 px->cm
+        try:
+            pixel_per_cm, _, cropped_path = get_pixel_per_cm_from_a4(
+                img_path,
+                show_debug=False,  # 關掉視覺化避免卡住
+                save_cropped=True,
+                output_folder=os.path.join(target_dir, "cropped_a4"),
+            )
+            print(f"{img_path} 動態計算比例 pixel_per_cm = {pixel_per_cm}")
+        except ValueError as e:
+            print(f"⚠️ 動態計算比例失敗 ({e})，準備改用 .env 備用比例")
+            try:
+                pixel_per_cm = _read_env_float("PDMS2_PX2CM")
+            except Exception as env_e:
+                img = cv2.imread(r["color_path"])
+                print(f"❌ 嚴重錯誤: 動態計算與 .env 備案皆失敗 -> {env_e}")
+                return -1, img
+            cropped_path = img_path  # 若裁切失敗，直接使用原圖路徑
+            print(f"{img_path} 備用比例 pixel_per_cm = {pixel_per_cm}")
+
+        # 參數要改
+        # 注意：CrossScorer 要的是「每像素幾公分」，這裡算出來的是「每公分幾像素」，必須取倒數
+        cs = CrossScorer(
+            cm_per_pixel=1.0 / pixel_per_cm,
+            angle_min=70.0,
+            angle_max=110.0,
+            max_spread_cm=0.6,
+        )
+
         results, result_img, _, _, _ = cs.score_image(r["binary_path"])
         return results["score"], result_img
 
@@ -192,7 +196,7 @@ def main(img_path):
     img = cv2.imread(r["color_path"])
     cv2.putText(img, "Other !", (30, 50), cv2.FONT_HERSHEY_SIMPLEX,
                 0.6, (0, 0, 255), 2)
-    print(f"{img_path} is {label}!")
+    print(f"{img_path} 不是 {TARGET}!")
     return 0, img
 
 

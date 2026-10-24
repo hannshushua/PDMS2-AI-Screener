@@ -18,8 +18,12 @@ ENV_PATH = BASE_DIR.parent / ".env"
 target_dir = BASE_DIR
 # 共用模組：prepare(分類前) + classify(分類)
 sys.path.insert(0, str(BASE_DIR.parent))
-from prepare import Preparer
-from classify import Classifier
+try:
+    from PDMS2_web.prepare import Preparer
+    from PDMS2_web.classify import Classifier, fmt_probs
+except ImportError:  # 直接在 PDMS2_web 底下跑 (上面已把 PDMS2_web 加進 sys.path)
+    from prepare import Preparer
+    from classify import Classifier, fmt_probs
 
 
 def _read_env_value(key, default):
@@ -224,21 +228,8 @@ def main(img_path):
 
     print(f"\n=== 處理 {img_path} ===\n")
 
-    # 得出 px->cm 與 warped A4（評分尺度，維持原本 A4 量測不變）
-    try:
-        _, _, cropped_path = get_pixel_per_cm_from_a4(
-            img_path,
-            show_debug=False,  # 關掉視覺化避免卡住
-            save_cropped=True,
-            output_folder=target_dir / "cropped_a4",
-        )
-        pixel_per_cm = _read_db_config("PDMS2_PX2CM", 47.4416628993705)
-        print(f"{img_path} pixel_per_cm = {pixel_per_cm}")
-    except ValueError as e:
-        print(f"⚠️ 跳過 {img_path}：{e}")
-        return -1, cv2.imread(img_path)
-
-    # prepare：找紙張 + CV 圈選 + binary
+    # prepare：paper_seg + SAM2 找紙張 -> 紙張 mask 範圍內用 shape_det 找圖形
+    #          (沒找到紙也照樣整張找 shape，找到就切下來繼續) -> binary
     print("\n==prepare 前處理==")
     prep = Preparer()
     stem = os.path.splitext(os.path.basename(img_path))[0]
@@ -247,19 +238,31 @@ def main(img_path):
         print(f"未圈到圖形（{r['reason']}）")
         return -1, r.get("vis")
 
-    # classify：4 類分類（僅作為閘門）
+    # classify：只看 square 的機率（不跟其他類比最高，僅作為閘門）
     print("\n==classify 分類==")
     clf = Classifier()
-    label, conf = clf.classify(r["binary_bgr"])
-    print(f"{img_path} → {label} ({conf*100:.2f}%)")
+    t = clf.check_target(r["binary_bgr"], TARGET)
+    print(f"{img_path} → {TARGET} {t['p']*100:.2f}%  ({t['why']})  [{fmt_probs(t['probs'])}]")
 
     # 非目標形狀 -> 0 分
-    if label != TARGET:
+    if not t["ok"]:
         img = cv2.imread(r["color_path"])
         cv2.putText(img, "Other !", (30, 50), cv2.FONT_HERSHEY_SIMPLEX,
                     0.6, (0, 0, 255), 2)
-        print(f"{img_path} is {label}!")
+        print(f"{img_path} 不是 {TARGET}!")
         return 0, img
+
+    # 得出 warped A4（評分用，維持原本 A4 量測）；A4 輪廓找不到就直接用原圖評分
+    try:
+        _, _, cropped_path = get_pixel_per_cm_from_a4(
+            img_path,
+            show_debug=False,  # 關掉視覺化避免卡住
+            save_cropped=True,
+            output_folder=target_dir / "cropped_a4",
+        )
+    except ValueError as e:
+        print(f"A4 量測失敗（{e}），改用原圖評分")
+        cropped_path = img_path
 
     # 方形 -> 交給 SquareGapAnalyzer 評分（評分邏輯不變，仍吃 warped A4）
     SGA = SquareGapAnalyzer()

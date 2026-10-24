@@ -1,0 +1,185 @@
+check_ch2 評分結果 (ch2-t1/2/3 main.py)  2026-10-22 18:22
+分數: 2/1/0 = 評分結果，0 也可能是形狀沒過閘門，-1 = 找不到圖形或無法評分
+
+===== ch2-t1 (22 張) =====
+  2  083101_Ch2-t1_0_原始.jpg    (檔名標準分數 0  ✗ 不一致)
+     分類: circle 100.00%  (circle 1.00 >= 0.4)  [circle 1.00  cross 0.00  other 0.00  square 0.00]
+  2  090101_Ch2-t1_0_原始.jpg    (檔名標準分數 0  ✗ 不一致)
+     分類: circle 75.38%  (circle 0.75 >= 0.4)  [circle 0.75  cross 0.00  other 0.00  square 0.25]
+     備註: A4 量測失敗（無法偵測 A4 紙四邊形輪廓），改用 .env 備用比例 pixel_per_cm = 20.5487
+  2  090201_Ch2-t1_2_原始.jpg    (檔名標準分數 2)
+     分類: circle 100.00%  (circle 1.00 >= 0.4)  [circle 1.00  cross 0.00  other 0.00  square 0.00]
+  2  090202_Ch2-t1_0_原始.jpg    (檔名標準分數 0  ✗ 不一致)
+     分類: circle 5.84%  (circle 0.06 < 0.4，但圓度 0.93 >= 0.85 改判通過)  [circle 0.06  cross 0.00  other 0.00  square 0.94]
+     備註: A4 量測失敗（無法偵測 A4 紙四邊形輪廓），改用 .env 備用比例 pixel_per_cm = 20.5487
+  2  090203_Ch2-t1_0_原始.jpg    (檔名標準分數 0  ✗ 不一致)
+     分類: circle 100.00%  (circle 1.00 >= 0.4)  [circle 1.00  cross 0.00  other 0.00  square 0.00]
+     備註: A4 量測失敗（無法偵測 A4 紙四邊形輪廓），改用 .env 備用比例 pixel_per_cm = 20.5487
+  2  090301_Ch2-t1_1_原始.jpg    (檔名標準分數 1  ✗ 不一致)
+     分類: circle 99.98%  (circle 1.00 >= 0.4)  [circle 1.00  cross 0.00  other 0.00  square 0.00]
+  2  090302_Ch2-t1_2_原始.jpg    (檔名標準分數 2)
+     分類: circle 4.42%  (circle 0.04 < 0.4，但圓度 0.95 >= 0.85 改判通過)  [circle 0.04  cross 0.00  other 0.00  square 0.95]
+  0  090401_Ch2-t1_0_原始.jpg    (檔名標準分數 0)
+     分類: circle 3.30%  (circle 0.03 < 0.4，但圓度 0.90 >= 0.85 改判通過)  [circle 0.03  cross 0.00  other 0.00  square 0.96]
+     備註: A4 量測失敗（無法偵測 A4 紙四邊形輪廓），改用 .env 備用比例 pixel_per_cm = 20.5487
+  2  090402_Ch2-t1_0_原始.jpg    (檔名標準分數 0  ✗ 不一致)
+     分類: circle 91.33%  (circle 0.91 >= 0.4)  [circle 0.91  cross 0.00  other 0.00  square 0.09]
+     備註: A4 量測失敗（無法偵測 A4 紙四邊形輪廓），改用 .env 備用比例 pixel_per_cm = 20.5487
+  2  090403_Ch2-t1_2_原始.jpg    (檔名標準分數 2)
+     分類: circle 100.00%  (circle 1.00 >= 0.4)  [circle 1.00  cross 0.00  other 0.00  square 0.00]
+  2  090404_Ch2-t1_0_原始.jpg    (檔名標準分數 0  ✗ 不一致)
+     分類: circle 100.00%  (circle 1.00 >= 0.4)  [circle 1.00  cross 0.00  other 0.00  square 0.00]
+     備註: A4 量測失敗（無法偵測 A4 紙四邊形輪廓），改用 .env 備用比例 pixel_per_cm = 20.5487
+  2  090901_Ch2-t1_0_原始.jpg    (檔名標準分數 0  ✗ 不一致)
+     分類: circle 99.99%  (circle 1.00 >= 0.4)  [circle 1.00  cross 0.00  other 0.00  square 0.00]
+  2  091101_Ch2-t1_0_原始.jpg    (檔名標準分數 0  ✗ 不一致)
+     分類: circle 1.44%  (circle 0.01 < 0.4，但圓度 0.97 >= 0.85 改判通過)  [circle 0.01  cross 0.00  other 0.00  square 0.99]
+     備註: A4 量測失敗（無法偵測 A4 紙四邊形輪廓），改用 .env 備用比例 pixel_per_cm = 20.5487
+  2  091401_Ch2-t1_2_原始.jpg    (檔名標準分數 2)
+     分類: circle 99.87%  (circle 1.00 >= 0.4)  [circle 1.00  cross 0.00  other 0.00  square 0.00]
+  2  091501_Ch2-t1_2_原始.jpg    (檔名標準分數 2)
+     分類: circle 84.16%  (circle 0.84 >= 0.4)  [circle 0.84  cross 0.00  other 0.00  square 0.16]
+  2  091601_Ch2-t1_失敗 (2)_原始.jpg    (檔名標「失敗」，沒有標準分數)
+     分類: circle 99.98%  (circle 1.00 >= 0.4)  [circle 1.00  cross 0.00  other 0.00  square 0.00]
+     備註: A4 量測失敗（無法偵測 A4 紙四邊形輪廓），改用 .env 備用比例 pixel_per_cm = 20.5487
+  2  091601_Ch2-t1_失敗 (3)_原始.jpg    (檔名標「失敗」，沒有標準分數)
+     分類: circle 99.99%  (circle 1.00 >= 0.4)  [circle 1.00  cross 0.00  other 0.00  square 0.00]
+     備註: [prepare] 沒找到紙張，改成整張圖找 shape; A4 量測失敗（無法偵測 A4 紙四邊形輪廓），改用 .env 備用比例 pixel_per_cm = 20.5487
+  2  091601_Ch2-t1_失敗_原始.jpg    (檔名標「失敗」，沒有標準分數)
+     分類: circle 99.94%  (circle 1.00 >= 0.4)  [circle 1.00  cross 0.00  other 0.00  square 0.00]
+     備註: A4 量測失敗（無法偵測 A4 紙四邊形輪廓），改用 .env 備用比例 pixel_per_cm = 20.5487
+  2  091801_Ch2-t1_失敗_原始.jpg    (檔名標「失敗」，沒有標準分數)
+     分類: circle 99.99%  (circle 1.00 >= 0.4)  [circle 1.00  cross 0.00  other 0.00  square 0.00]
+     備註: A4 量測失敗（無法偵測 A4 紙四邊形輪廓），改用 .env 備用比例 pixel_per_cm = 20.5487
+  2  091802_Ch2-t1_失敗_原始.jpg    (檔名標「失敗」，沒有標準分數)
+     分類: circle 91.87%  (circle 0.92 >= 0.4)  [circle 0.92  cross 0.00  other 0.00  square 0.08]
+     備註: A4 量測失敗（無法偵測 A4 紙四邊形輪廓），改用 .env 備用比例 pixel_per_cm = 20.5487
+  2  092101_Ch2-t1_2_原始.jpg    (檔名標準分數 2)
+     分類: circle 100.00%  (circle 1.00 >= 0.4)  [circle 1.00  cross 0.00  other 0.00  square 0.00]
+  2  092102_Ch2-t1_2_原始.jpg    (檔名標準分數 2)
+     分類: circle 68.13%  (circle 0.68 >= 0.4)  [circle 0.68  cross 0.00  other 0.00  square 0.32]
+  分數分布: 2分 x21  0分 x1
+
+===== ch2-t2 (21 張) =====
+  1  083101_Ch2-t2_1_原始.jpg    (檔名標準分數 1)
+     分類: square 100.00%  (square 1.00 >= 0.4)  [circle 0.00  cross 0.00  other 0.00  square 1.00]
+  0  090101_Ch2-t2_0_原始.jpg    (檔名標準分數 0)
+     分類: square 99.99%  (square 1.00 >= 0.4)  [circle 0.00  cross 0.00  other 0.00  square 1.00]
+     備註: [prepare] 沒找到紙張，改成整張圖找 shape; A4 量測失敗（無法偵測 A4 紙四邊形輪廓），改用原圖評分
+  2  090201_Ch2-t2_2_原始.jpg    (檔名標準分數 2)
+     分類: square 100.00%  (square 1.00 >= 0.4)  [circle 0.00  cross 0.00  other 0.00  square 1.00]
+  0  090202_Ch2-t2_0_原始.jpg    (檔名標準分數 0)
+     分類: square 99.99%  (square 1.00 >= 0.4)  [circle 0.00  cross 0.00  other 0.00  square 1.00]
+     備註: A4 量測失敗（無法偵測 A4 紙四邊形輪廓），改用原圖評分
+  0  090203_Ch2-t2_0_原始.jpg    (檔名標準分數 0)
+     分類: square 96.00%  (square 0.96 >= 0.4)  [circle 0.01  cross 0.00  other 0.03  square 0.96]
+  2  090301_Ch2-t2_2_原始.jpg    (檔名標準分數 2)
+     分類: square 100.00%  (square 1.00 >= 0.4)  [circle 0.00  cross 0.00  other 0.00  square 1.00]
+  1  090302_Ch2-t2_1_原始.jpg    (檔名標準分數 1)
+     分類: square 99.92%  (square 1.00 >= 0.4)  [circle 0.00  cross 0.00  other 0.00  square 1.00]
+  2  090401_Ch2-t2_2_原始.jpg    (檔名標準分數 2)
+     分類: square 100.00%  (square 1.00 >= 0.4)  [circle 0.00  cross 0.00  other 0.00  square 1.00]
+  0  090402_Ch2-t2_0_原始.jpg    (檔名標準分數 0)
+     分類: square 100.00%  (square 1.00 >= 0.4)  [circle 0.00  cross 0.00  other 0.00  square 1.00]
+     備註: A4 量測失敗（無法偵測 A4 紙四邊形輪廓），改用原圖評分
+  2  090403_Ch2-t2_2_原始.jpg    (檔名標準分數 2)
+     分類: square 100.00%  (square 1.00 >= 0.4)  [circle 0.00  cross 0.00  other 0.00  square 1.00]
+  0  090404_Ch2-t2_0_原始.jpg    (檔名標準分數 0)
+     分類: square 100.00%  (square 1.00 >= 0.4)  [circle 0.00  cross 0.00  other 0.00  square 1.00]
+     備註: A4 量測失敗（無法偵測 A4 紙四邊形輪廓），改用原圖評分
+  2  090901_Ch2-t2_2_原始.jpg    (檔名標準分數 2)
+     分類: square 100.00%  (square 1.00 >= 0.4)  [circle 0.00  cross 0.00  other 0.00  square 1.00]
+  1  091101_Ch2-t2_1_原始.jpg    (檔名標準分數 1)
+     分類: square 100.00%  (square 1.00 >= 0.4)  [circle 0.00  cross 0.00  other 0.00  square 1.00]
+  1  091401_Ch2-t2_1_原始.jpg    (檔名標準分數 1)
+     分類: square 99.99%  (square 1.00 >= 0.4)  [circle 0.00  cross 0.00  other 0.00  square 1.00]
+  0  091401_Ch2-t2_失敗_原始.jpg    (檔名標「失敗」，沒有標準分數)
+     分類: square 99.99%  (square 1.00 >= 0.4)  [circle 0.00  cross 0.00  other 0.00  square 1.00]
+     備註: A4 量測失敗（無法偵測 A4 紙四邊形輪廓），改用原圖評分
+  2  091501_Ch2-t2_2_原始.jpg    (檔名標準分數 2)
+     分類: square 100.00%  (square 1.00 >= 0.4)  [circle 0.00  cross 0.00  other 0.00  square 1.00]
+  1  091601_Ch2-t2_1_原始.jpg    (檔名標準分數 1)
+     分類: square 100.00%  (square 1.00 >= 0.4)  [circle 0.00  cross 0.00  other 0.00  square 1.00]
+  0  091801_Ch2-t2_失敗_原始.jpg    (檔名標「失敗」，沒有標準分數)
+     分類: square 100.00%  (square 1.00 >= 0.4)  [circle 0.00  cross 0.00  other 0.00  square 1.00]
+     備註: [prepare] 沒找到紙張，改成整張圖找 shape; A4 量測失敗（無法偵測 A4 紙四邊形輪廓），改用原圖評分
+  0  091802_Ch2-t2_失敗_原始.jpg    (檔名標「失敗」，沒有標準分數)
+     分類: square 99.99%  (square 1.00 >= 0.4)  [circle 0.00  cross 0.00  other 0.00  square 1.00]
+     備註: [prepare] 沒找到紙張，改成整張圖找 shape; A4 量測失敗（無法偵測 A4 紙四邊形輪廓），改用原圖評分
+  0  092101_Ch2-t2_0_原始.jpg    (檔名標準分數 0)
+     分類: square 99.48%  (square 0.99 >= 0.4)  [circle 0.00  cross 0.00  other 0.01  square 0.99]
+  0  092102_Ch2-t2_0_原始.jpg    (檔名標準分數 0)
+     分類: square 100.00%  (square 1.00 >= 0.4)  [circle 0.00  cross 0.00  other 0.00  square 1.00]
+     備註: [prepare] 沒找到紙張，改成整張圖找 shape
+  分數分布: 2分 x6  1分 x5  0分 x10
+
+===== ch2-t3 (20 張) =====
+  1  083101_Ch2-t3_1_原始.jpg    (檔名標準分數 1)
+     分類: cross 75.25%  (cross 0.75 >= 0.4)  [circle 0.00  cross 0.75  other 0.25  square 0.00]
+  1  090101_Ch2-t3_1_原始.jpg    (檔名標準分數 1)
+     分類: cross 99.85%  (cross 1.00 >= 0.4)  [circle 0.00  cross 1.00  other 0.00  square 0.00]
+     備註: ⚠️ 動態計算比例失敗 (無法偵測 A4 紙四邊形輪廓)，準備改用 .env 備用比例
+  1  090201_Ch2-t3_1_原始.jpg    (檔名標準分數 1)
+     分類: cross 85.50%  (cross 0.85 >= 0.4)  [circle 0.00  cross 0.85  other 0.14  square 0.00]
+     備註: ⚠️ 動態計算比例失敗 (無法偵測 A4 紙四邊形輪廓)，準備改用 .env 備用比例
+  1  090202_Ch2-t3_1_原始.jpg    (檔名標準分數 1)
+     分類: cross 98.31%  (cross 0.98 >= 0.4)  [circle 0.00  cross 0.98  other 0.02  square 0.00]
+  1  090203_Ch2-t3_1_原始.jpg    (檔名標準分數 1)
+     分類: cross 93.40%  (cross 0.93 >= 0.4)  [circle 0.00  cross 0.93  other 0.07  square 0.00]
+     備註: ⚠️ 動態計算比例失敗 (無法偵測 A4 紙四邊形輪廓)，準備改用 .env 備用比例
+  1  090301_Ch2-t3_1_原始.jpg    (檔名標準分數 1)
+     分類: cross 99.94%  (cross 1.00 >= 0.4)  [circle 0.00  cross 1.00  other 0.00  square 0.00]
+     備註: ⚠️ 動態計算比例失敗 (無法偵測 A4 紙四邊形輪廓)，準備改用 .env 備用比例
+  1  090302_Ch2-t3_1_原始.jpg    (檔名標準分數 1)
+     分類: cross 98.74%  (cross 0.99 >= 0.4)  [circle 0.00  cross 0.99  other 0.01  square 0.00]
+  2  090401_Ch2-t3_0_原始.jpg    (檔名標準分數 0  ✗ 不一致)
+     分類: cross 100.00%  (cross 1.00 >= 0.4)  [circle 0.00  cross 1.00  other 0.00  square 0.00]
+     備註: ⚠️ 動態計算比例失敗 (無法偵測 A4 紙四邊形輪廓)，準備改用 .env 備用比例
+  1  090402_Ch2-t3_1_原始.jpg    (檔名標準分數 1)
+     分類: cross 99.97%  (cross 1.00 >= 0.4)  [circle 0.00  cross 1.00  other 0.00  square 0.00]
+  2  090403_Ch2-t3_2_原始.jpg    (檔名標準分數 2)
+     分類: cross 99.95%  (cross 1.00 >= 0.4)  [circle 0.00  cross 1.00  other 0.00  square 0.00]
+  1  090404_Ch2-t3_0_原始.jpg    (檔名標準分數 0  ✗ 不一致)
+     分類: cross 99.65%  (cross 1.00 >= 0.4)  [circle 0.00  cross 1.00  other 0.00  square 0.00]
+  1  090901_Ch2-t3_1_原始.jpg    (檔名標準分數 1)
+     分類: cross 99.15%  (cross 0.99 >= 0.4)  [circle 0.00  cross 0.99  other 0.01  square 0.00]
+  1  091101_Ch2-t3_1_原始.jpg    (檔名標準分數 1)
+     分類: cross 99.97%  (cross 1.00 >= 0.4)  [circle 0.00  cross 1.00  other 0.00  square 0.00]
+     備註: ⚠️ 動態計算比例失敗 (無法偵測 A4 紙四邊形輪廓)，準備改用 .env 備用比例
+  0  091401_Ch2-t3_1_原始.jpg    (檔名標準分數 1  ✗ 不一致)
+     分類: cross 30.24%  (cross 0.30 < 0.4)  [circle 0.00  cross 0.30  other 0.70  square 0.00]
+     備註: 不是 cross!
+  1  091501_Ch2-t3_0_原始.jpg    (檔名標準分數 0  ✗ 不一致)
+     分類: cross 99.09%  (cross 0.99 >= 0.4)  [circle 0.00  cross 0.99  other 0.01  square 0.00]
+  1  091601_Ch2-t3_1_原始.jpg    (檔名標準分數 1)
+     分類: cross 94.48%  (cross 0.94 >= 0.4)  [circle 0.00  cross 0.94  other 0.05  square 0.00]
+  1  091801_Ch2-t3_1_原始.jpg    (檔名標準分數 1)
+     分類: cross 98.87%  (cross 0.99 >= 0.4)  [circle 0.00  cross 0.99  other 0.01  square 0.00]
+     備註: ⚠️ 動態計算比例失敗 (無法偵測 A4 紙四邊形輪廓)，準備改用 .env 備用比例
+  1  091802_Ch2-t3_1_原始.jpg    (檔名標準分數 1)
+     分類: cross 76.85%  (cross 0.77 >= 0.4)  [circle 0.00  cross 0.77  other 0.23  square 0.00]
+     備註: ⚠️ 動態計算比例失敗 (無法偵測 A4 紙四邊形輪廓)，準備改用 .env 備用比例
+  1  092101_Ch2-t3_1_原始.jpg    (檔名標準分數 1)
+     分類: cross 99.95%  (cross 1.00 >= 0.4)  [circle 0.00  cross 1.00  other 0.00  square 0.00]
+  1  092102_Ch2-t3_1_原始.jpg    (檔名標準分數 1)
+     分類: cross 95.93%  (cross 0.96 >= 0.4)  [circle 0.00  cross 0.96  other 0.04  square 0.00]
+     備註: [prepare] 沒找到紙張，改成整張圖找 shape; ⚠️ 動態計算比例失敗 (無法偵測 A4 紙四邊形輪廓)，準備改用 .env 備用比例
+  分數分布: 2分 x2  1分 x17  0分 x1
+
+===== 跟檔名標準分數對照 (檔名 Ch2-tX_<分數>_原始；標「失敗」的不算) =====
+ch2-t1: 一致 8/17
+    083101_Ch2-t1_0_原始.jpg: 標準 0 / 程式 2
+    090101_Ch2-t1_0_原始.jpg: 標準 0 / 程式 2
+    090202_Ch2-t1_0_原始.jpg: 標準 0 / 程式 2
+    090203_Ch2-t1_0_原始.jpg: 標準 0 / 程式 2
+    090301_Ch2-t1_1_原始.jpg: 標準 1 / 程式 2
+    090402_Ch2-t1_0_原始.jpg: 標準 0 / 程式 2
+    090404_Ch2-t1_0_原始.jpg: 標準 0 / 程式 2
+    090901_Ch2-t1_0_原始.jpg: 標準 0 / 程式 2
+    091101_Ch2-t1_0_原始.jpg: 標準 0 / 程式 2
+ch2-t2: 一致 18/18
+ch2-t3: 一致 16/20
+    090401_Ch2-t3_0_原始.jpg: 標準 0 / 程式 2
+    090404_Ch2-t3_0_原始.jpg: 標準 0 / 程式 1
+    091401_Ch2-t3_1_原始.jpg: 標準 1 / 程式 0
+    091501_Ch2-t3_0_原始.jpg: 標準 0 / 程式 1

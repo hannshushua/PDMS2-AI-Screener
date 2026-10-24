@@ -1,0 +1,8 @@
+path: D:\Desktop\vscode\PDMS2-AI-Screener\fixyolo\button_tape_cloth_aug_det
+train: train/images
+val: valid/images
+nc: 2
+names:
+- button
+- tape
+test: test/images

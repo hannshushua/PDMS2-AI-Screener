@@ -38,11 +38,12 @@ sentence-transformers==5.1.2
 #      （torchvision 對應版本為 0.17.2）
 #   2. torch 2.2.x 是對 numpy 1.x 編譯的，numpy 必須壓在 2.0 以下，
 #      否則 import 時會出現 _ARRAY_API not found
+#      opencv-python 4.12 起要求 numpy>=2，所以也要壓在 4.11 以下
 # Apple Silicon 或 Windows 請改用 PDMS2_web/requirements.txt 的新版組合。
 numpy==1.26.4
 torch==2.2.2
 torchvision==0.17.2
-opencv-python==4.12.0.88
+opencv-python==4.10.0.84
 ultralytics==8.3.217
 
 # SAM 官方套件未發佈到 PyPI，模組名稱為 segment_anything

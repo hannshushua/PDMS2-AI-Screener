@@ -1,8 +1,9 @@
 """
 ch2 畫圖三關共用 —— 分類「之前」的所有前處理：
   影像 -> paper 模型 bbox + SAM2 找紙張
-       -> 在紙張 mask 範圍內用 shape 模型(YOLO) 圈出手繪圖形（CV 保底）
-       -> 切正方形 -> 轉黑底白線 binary(224)
+       -> 在紙張 mask 範圍內用 shape 模型(YOLO) 多尺度圈出手繪圖形（CV 保底）
+       -> 切正方形(框外用框邊像素補) -> 轉黑底白線 binary(224)
+  找框 + 切圖跟 fixyolo/take.py 一樣 (shape_cls.pt 是用這套切出來的圖訓練的)
 
 用法：
   from prepare import Preparer
@@ -140,6 +141,70 @@ def find_shape_bbox_yolo(frame, shape_yolo, paper_mask, device, conf=0.25):
     return bbox, label, cf
 
 
+# ---------------- step2(新): 多尺度 shape 偵測，同 fixyolo/take.py find_shapes ----------------
+# shape_cls.pt (fixyolo/train_all.py) 是用這套「找框 + 切圖」做出來的圖訓練的，分類前處理要跟它一樣
+SHAPE_PAD = 10  # 偵測框四周各外擴的 px
+
+
+def _shape_preds(frame, shape_yolo, scale, device, conf, imgsz):
+    """把 frame 縮小 scale 倍貼在黑底中央再偵測 (畫太大的圖形縮小後才不會被切成兩半)，
+    回傳換回原圖座標的 [(x1, y1, x2, y2, conf, label), ...]"""
+    H, W = frame.shape[:2]
+    if scale < 1.0:
+        sw, sh = int(W * scale), int(H * scale)
+        ox, oy = (W - sw) // 2, (H - sh) // 2
+        src = np.zeros_like(frame)
+        src[oy:oy + sh, ox:ox + sw] = cv2.resize(frame, (sw, sh), interpolation=cv2.INTER_AREA)
+    else:
+        ox = oy = 0
+        src = frame
+    r = shape_yolo.predict(source=src, conf=conf, imgsz=imgsz, device=device, verbose=False)[0]
+    out = []
+    for (x1, y1, x2, y2), cf, ci in zip(r.boxes.xyxy.tolist(), r.boxes.conf.tolist(), r.boxes.cls.tolist()):
+        x1, x2 = ((v - ox) / scale for v in (x1, x2))
+        y1, y2 = ((v - oy) / scale for v in (y1, y2))
+        out.append((int(x1), int(y1), int(x2), int(y2), float(cf), shape_yolo.names[int(ci)]))
+    return out
+
+
+def find_shape_bbox_multi(frame, shape_yolo, paper_mask, device, conf=0.25, imgsz=640):
+    """多尺度找圖形 (原尺寸 + 縮 0.6，都沒有再試 0.4)，只留框 80% 以上在紙上、信心 >= 最高分*0.75 的框，
+    合併重複的框，取面積最大的那個，四周外擴 SHAPE_PAD。paper_mask 為 None 就不過濾。
+    回傳 (bbox, label, det_conf) 或 None"""
+    H, W = frame.shape[:2]
+
+    def area(b):
+        return max(0, b[2] - b[0]) * max(0, b[3] - b[1])
+
+    def on_paper(b):
+        # 壓在紙邊的手會超出紙外，所以要框大部分在紙上
+        if paper_mask is None:
+            return True
+        x1, y1, x2, y2 = b[:4]
+        sub = paper_mask[max(0, y1):min(H, y2), max(0, x1):min(W, x2)]
+        return int((sub > 0).sum()) >= 0.8 * max(1, area(b))
+
+    def overlap(a, b):
+        # 交集 / 較小框面積：不同尺度框到同一個圖形、或大框裡的半個框都會接近 1
+        iw = min(a[2], b[2]) - max(a[0], b[0])
+        ih = min(a[3], b[3]) - max(a[1], b[1])
+        return 0.0 if iw <= 0 or ih <= 0 else iw * ih / max(1, min(area(a), area(b)))
+
+    for scales in ((1.0, 0.6), (0.4,)):
+        cand = [b for sc in scales for b in _shape_preds(frame, shape_yolo, sc, device, conf, imgsz) if on_paper(b)]
+        if cand:
+            top = max(b[4] for b in cand)
+            cand = [b for b in cand if b[4] >= 0.75 * top]
+            kept = []
+            for b in sorted(cand, key=area, reverse=True):
+                if all(overlap(b, k) < 0.6 for k in kept):
+                    kept.append(b)
+            x1, y1, x2, y2, cf, label = kept[0]
+            return ((max(0, x1 - SHAPE_PAD), max(0, y1 - SHAPE_PAD),
+                     min(W, x2 + SHAPE_PAD), min(H, y2 + SHAPE_PAD)), label, cf)
+    return None
+
+
 # ---------------- step2(備用): 紙內用 CV 找圖形 ----------------
 def find_shape_bbox(frame, paper_mask, min_area_ratio=0.0005):
     """在紙張 mask 範圍內用 OpenCV(adaptiveThreshold) 找手繪圖形外接框。
@@ -198,6 +263,17 @@ def crop_square(frame, bbox, pad=30):
     return frame[cy1:cy1 + side, cx1:cx1 + side].copy(), (cx1, cy1, cx1 + side, cy1 + side)
 
 
+def crop_square_replicate(frame, bbox, pad=30):
+    """同 crop_square 的正方形範圍，但只取 bbox 內的像素，框外用框邊像素往外延伸補滿。
+    直接切正方形會切到框外的桌緣 / 紙邊，to_binary 只留最大塊時會選到它們而不是圖形。"""
+    _, (cx1, cy1, cx2, cy2) = crop_square(frame, bbox, pad)
+    x1, y1 = max(bbox[0], cx1), max(bbox[1], cy1)
+    x2, y2 = min(bbox[2], cx2), min(bbox[3], cy2)
+    crop = cv2.copyMakeBorder(frame[y1:y2, x1:x2], y1 - cy1, cy2 - y2, x1 - cx1, cx2 - x2,
+                              cv2.BORDER_REPLICATE)
+    return crop, (cx1, cy1, cx2, cy2)
+
+
 # ---------------- step3(前段): 轉 binary ----------------
 def to_binary(bgr):
     """轉黑底白線（同 cls 訓練資料 class_data 格式）。回傳單通道 uint8(0/255)。"""
@@ -247,25 +323,32 @@ class Preparer:
 
         # step1: 找白紙
         paper_mask = locate_paper(frame, self.paper, self.sam, self.device, self.paper_conf)
-        if paper_mask is None or int((paper_mask > 0).sum()) == 0:
-            return {"ok": False, "reason": "no_paper", "vis": frame.copy()}
+        if paper_mask is not None and int((paper_mask > 0).sum()) == 0:
+            paper_mask = None
         vis = frame.copy()
-        cnts, _ = cv2.findContours(paper_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        cv2.drawContours(vis, cnts, -1, (255, 128, 0), 2)
+        if paper_mask is not None:
+            cnts, _ = cv2.findContours(paper_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            cv2.drawContours(vis, cnts, -1, (255, 128, 0), 2)
+        else:
+            print("[prepare] 沒找到紙張，改成整張圖找 shape")
 
-        # step2: 紙內用 shape 模型(YOLO) 找圖形，找不到再退回 CV
+        # step2: shape 模型(YOLO) 多尺度找圖形 (有紙就只留紙上的；沒紙也照找)，找不到再退回 CV
         det_label, det_conf = None, None
-        hit = find_shape_bbox_yolo(frame, self.shape, paper_mask,
-                                   self.device, self.shape_conf)
+        pad = self.pad
+        hit = find_shape_bbox_multi(frame, self.shape, paper_mask,
+                                    self.device, self.shape_conf)
         if hit is not None:
             bbox, det_label, det_conf = hit
-        else:
+            pad = self.pad - SHAPE_PAD  # 偵測框已外擴 SHAPE_PAD，合計還是 self.pad
+        elif paper_mask is not None:
             bbox = find_shape_bbox(frame, paper_mask)
+        else:
+            return {"ok": False, "reason": "no_paper", "vis": vis}
         if bbox is None:
             return {"ok": False, "reason": "no_shape", "vis": vis}
 
-        # step3: 切正方形 + binary
-        crop, sq = crop_square(frame, bbox, self.pad)
+        # step3: 切正方形 (框外用框邊像素補) + binary
+        crop, sq = crop_square_replicate(frame, bbox, pad)
         cv2.rectangle(vis, (sq[0], sq[1]), (sq[2], sq[3]), (0, 255, 0), 3)
         color224 = cv2.resize(crop, (self.size, self.size), interpolation=cv2.INTER_AREA)
         binary224 = cv2.resize(to_binary(crop), (self.size, self.size),

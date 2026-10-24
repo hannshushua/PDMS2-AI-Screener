@@ -1,0 +1,44 @@
+{
+  "yolo": {
+    "rope_len": 951.8082177639008,
+    "rope_area": 7612.0,
+    "rope_width": 7.997409412878365,
+    "block_side": 64.7727300290244,
+    "n_blocks": 6,
+    "len_spread": 1.0,
+    "per_block_len": null,
+    "per_block_area": null,
+    "frame_size": [
+      1920,
+      1080
+    ],
+    "roi": [
+      556,
+      12,
+      902,
+      675
+    ],
+    "time": "2026-10-24 13:09:35"
+  },
+  "sam": {
+    "rope_len": 1106.8534180521965,
+    "rope_area": 13258.0,
+    "rope_width": 11.978099162697607,
+    "block_side": 56.991203084876844,
+    "n_blocks": 6,
+    "len_spread": 0.5355338454246521,
+    "per_block_len": null,
+    "per_block_area": null,
+    "frame_size": [
+      1920,
+      1080
+    ],
+    "roi": [
+      556,
+      12,
+      902,
+      675
+    ],
+    "time": "2026-10-24 13:16:31"
+  }
+}

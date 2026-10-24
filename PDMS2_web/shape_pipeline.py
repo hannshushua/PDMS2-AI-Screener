@@ -12,10 +12,10 @@ import cv2
 import numpy as np
 
 # 分類前的所有工具函式（單一來源在 prepare.py）
-from prepare import (pick_device, get_paper_bbox, sam_mask_from_bbox, locate_paper,
+from PDMS2_web.prepare import (pick_device, get_paper_bbox, sam_mask_from_bbox, locate_paper,
                      find_shape_bbox, crop_square, to_binary, Preparer,
                      DEFAULT_PAPER_WEIGHTS, DEFAULT_SAM_WEIGHTS)
-from classify import Classifier, DEFAULT_CLS_WEIGHTS
+from PDMS2_web.classify import Classifier, DEFAULT_CLS_WEIGHTS
 
 
 def paper_mask_cv(frame):

@@ -18,7 +18,7 @@ import re
 import json
 from html import escape
 
-from utils.rag_advisor import advisor
+from PDMS2_web.utils.rag_advisor import advisor
 
 print("====== CURRENT ADMIN SERVER IS RUNNING (PORT 8001) ======")
 

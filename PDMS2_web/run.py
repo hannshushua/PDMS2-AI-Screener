@@ -978,7 +978,7 @@ def api_get_ai_advice(uid):
     # 延遲 import：rag_advisor 會連鎖載入 chromadb / langchain / torch，
     # 只在真的呼叫這支 API 時才付這個代價，使用者端機器可以不裝那包
     try:
-        from utils.rag_advisor import advisor
+        from PDMS2_web.utils.rag_advisor import advisor
 
         advice = advisor.generate_advice(uid)
         return jsonify({"ok": True, "advice": advice})

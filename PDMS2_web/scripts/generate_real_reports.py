@@ -7,7 +7,7 @@ sys.path.append(str(ROOT))
 from dotenv import load_dotenv
 load_dotenv(ROOT / ".env")
 
-from utils.rag_advisor import PDMS2Advisor
+from PDMS2_web.utils.rag_advisor import PDMS2Advisor
 
 uids = ["test1", "test2", "test3", "test4", "test5"]
 advisor = PDMS2Advisor()

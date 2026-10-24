@@ -1,0 +1,38 @@
+{
+  "weights": "D:\\Desktop\\vscode\\PDMS2-AI-Screener\\fixyolo\\runs\\classify\\shape_cls_base\\weights\\best.pt",
+  "acc": 0.9296551724137931,
+  "correct": 674,
+  "total": 725,
+  "recall": {
+    "circle": 0.9230769230769231,
+    "cross": 0.967741935483871,
+    "other": 0.9395973154362416,
+    "square": 0.8944723618090452
+  },
+  "confusion": {
+    "circle": {
+      "circle": 96,
+      "cross": 0,
+      "other": 8,
+      "square": 0
+    },
+    "cross": {
+      "circle": 0,
+      "cross": 120,
+      "other": 4,
+      "square": 0
+    },
+    "other": {
+      "circle": 4,
+      "cross": 6,
+      "other": 280,
+      "square": 8
+    },
+    "square": {
+      "circle": 0,
+      "cross": 0,
+      "other": 21,
+      "square": 178
+    }
+  }
+}
