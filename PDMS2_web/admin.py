@@ -351,6 +351,8 @@ def manual_score_page():
     uid, task_id, test_date, time_val = parts
     if not can_access_uid(uid):
         return "Forbidden", 403
+    if task_id == "Ch5-t1":
+        return "撿豆子由電子秤客觀計數顆數與時間，不需人工評分", 400
 
     table = task_id_to_table(task_id)
     row = db_exec(
@@ -382,13 +384,7 @@ def manual_score_page():
         photos = [("原始照片", build_signed_image_url(uid, f"{stem}.jpg"))]
 
     is_video = bool(filename) and filename.lower().endswith(".mp4")
-    if task_id == "Ch5-t1":
-        # 撿豆子沒有照片也沒有錄影，結果只有秤的紀錄
-        photos_html = (
-            '<div class="box" style="width:80%;"><h3>本關沒有照片</h3>'
-            '<p>請依現場觀察的顆數與時間評分。</p></div>'
-        )
-    elif is_video:
+    if is_video:
         photos_html = (
             f'<div class="box" style="width:80%;"><h3>錄影</h3>'
             f'<video src="{build_signed_image_url(uid, filename)}" controls preload="metadata" style="max-width:100%;"></video></div>'
@@ -1206,6 +1202,8 @@ def upsert_manual_score():
 
         if not can_access_uid(uid):
             return jsonify({"ok": False, "msg": "權限不足"}), 403
+        if task_id == "Ch5-t1":
+            return jsonify({"ok": False, "msg": "撿豆子由電子秤客觀計數，不需人工評分"}), 400
         task_id_to_table(task_id)  # 驗證 task_id 存在，未知會丟 ValueError
 
         rater = str(user.get("account") or "").strip()

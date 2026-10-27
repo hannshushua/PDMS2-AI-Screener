@@ -235,14 +235,18 @@
 
       const mv = r.manual_score;
       const scoreHref = `/manual-score?rk=${encodeURIComponent(r.row_key)}`;
+      // 撿豆子由電子秤客觀計數，不做人工評分，也不算差異
+      const noManual = r.task_id === 'Ch5-t1';
       const manualCell = (userLevel >= 2)
-        ? `<td data-label="人工評分">${(mv === null || mv === undefined)
+        ? `<td data-label="人工評分">${noManual
+            ? '<span class="no-perm" title="撿豆子由電子秤自動計算顆數與時間，結果是客觀計數，不需要人工評分">免評分（秤自動計數）</span>'
+            : (mv === null || mv === undefined)
             ? `<a class="btn-view" href="${scoreHref}" target="_blank" title="開啟人工評分頁：只顯示原始照片，不顯示 AI 判讀結果">✎ 人工評分</a>`
             : `<a class="score-badge score-${mv}" href="${scoreHref}" target="_blank" style="text-decoration:none;" title="人工評分 ${mv} 分，評分者 ${r.manual_rater || '—'}（點擊可改分）">${mv}</a>`}</td>`
         : '';
 
       const diffCell = (userLevel >= 2)
-        ? `<td data-label="差異">${diffBadge(sv, mv)}</td>`
+        ? `<td data-label="差異">${noManual ? '<span class="diff-badge diff-na" title="本關不做人工評分">—</span>' : diffBadge(sv, mv)}</td>`
         : '';
 
       const imgCell = r.ai_hidden
