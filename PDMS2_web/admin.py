@@ -382,7 +382,13 @@ def manual_score_page():
         photos = [("原始照片", build_signed_image_url(uid, f"{stem}.jpg"))]
 
     is_video = bool(filename) and filename.lower().endswith(".mp4")
-    if is_video:
+    if task_id == "Ch5-t1":
+        # 撿豆子沒有照片也沒有錄影，結果只有秤的紀錄
+        photos_html = (
+            '<div class="box" style="width:80%;"><h3>本關沒有照片</h3>'
+            '<p>請依現場觀察的顆數與時間評分。</p></div>'
+        )
+    elif is_video:
         photos_html = (
             f'<div class="box" style="width:80%;"><h3>錄影</h3>'
             f'<video src="{build_signed_image_url(uid, filename)}" controls preload="metadata" style="max-width:100%;"></video></div>'
@@ -649,8 +655,8 @@ def view_compare():
     video_uid, video_file = extract_uid_filename(img_path)
     is_video = video_uid == uid and bool(video_file) and video_file.lower().endswith(".mp4")
 
-    # 盲評：醫療人員要先完成這筆的人工評分，才能看 AI 判讀結果（影片沒有 AI 結果，不擋）
-    if user_level(user) == 2 and not is_video:
+    # 盲評：醫療人員要先完成這筆的人工評分，才能看 AI 判讀結果（影片沒有 AI 結果、撿豆子是客觀計數，不擋）
+    if user_level(user) == 2 and not is_video and task_id != "Ch5-t1":
         rk_parts = request.args.get("rk", "").split("|", 3)
         rated = None
         if len(rk_parts) == 4 and rk_parts[0] == uid and rk_parts[1] == task_id:
@@ -935,7 +941,8 @@ def list_scores():
                 continue
 
             # 盲評：醫療人員（level 2）在這筆人工評分之前，看不到 AI 分數與判讀結果，避免影響評分
-            if level == 2 and r.get("manual_score") is None and r.get("score") is not None:
+            # 撿豆子是秤的客觀計數，不套盲評
+            if level == 2 and r.get("manual_score") is None and r.get("score") is not None and task_id != "Ch5-t1":
                 r["score"] = None
                 r["ai_hidden"] = True
                 r["result_img_url"] = None
