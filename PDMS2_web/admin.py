@@ -649,6 +649,19 @@ def view_compare():
     video_uid, video_file = extract_uid_filename(img_path)
     is_video = video_uid == uid and bool(video_file) and video_file.lower().endswith(".mp4")
 
+    # 盲評：醫療人員要先完成這筆的人工評分，才能看 AI 判讀結果（影片沒有 AI 結果，不擋）
+    if user_level(user) == 2 and not is_video:
+        rk_parts = request.args.get("rk", "").split("|", 3)
+        rated = None
+        if len(rk_parts) == 4 and rk_parts[0] == uid and rk_parts[1] == task_id:
+            rated = db_exec(
+                "SELECT 1 FROM manual_score WHERE uid=%s AND task_id=%s AND test_date=%s AND `time`=%s",
+                (uid, task_id, rk_parts[2], rk_parts[3]),
+                fetch="one",
+            )
+        if not rated:
+            return "請先完成這筆測驗的人工評分，才能檢視 AI 判讀結果", 403
+
 
     content_html = ""
     if task_id == "Ch5-t1":
@@ -917,6 +930,14 @@ def list_scores():
 
             # Level 1 防呆：即使資料層有過濾，也在輸出層再次限制
             if not can_access_uid(uid):
+                r["result_img_url"] = None
+                r["compare_url"] = None
+                continue
+
+            # 盲評：醫療人員（level 2）在這筆人工評分之前，看不到 AI 分數與判讀結果，避免影響評分
+            if level == 2 and r.get("manual_score") is None and r.get("score") is not None:
+                r["score"] = None
+                r["ai_hidden"] = True
                 r["result_img_url"] = None
                 r["compare_url"] = None
                 continue

@@ -222,7 +222,9 @@
 
       const sv = r.score;
       const isVideo = /\.mp4$/i.test(r.result_img_path || '');
-      const scoreCell = (sv === null || sv === undefined)
+      const scoreCell = r.ai_hidden
+        ? '<span class="score-badge score-na" title="完成人工評分後才會顯示 AI 分數，避免影響評分">評分後顯示</span>'
+        : (sv === null || sv === undefined)
         ? (isVideo
             ? '<span class="score-badge score-na" title="影片已上傳，等待人工評分">待評分</span>'
             : '<span class="score-badge score-na" title="尚未測驗">—</span>')
@@ -243,7 +245,9 @@
         ? `<td data-label="差異">${diffBadge(sv, mv)}</td>`
         : '';
 
-      const imgCell = (r.compare_url || r.result_img_url)
+      const imgCell = r.ai_hidden
+        ? '<span class="no-perm" title="完成人工評分後才能檢視 AI 判讀結果">評分後開放</span>'
+        : (r.compare_url || r.result_img_url)
         ? `<a href="${r.compare_url || r.result_img_url}" target="_blank" class="btn-view" title="開新分頁檢視這次測驗的原圖與 AI 判讀結果對比">${isVideo ? '播放影片' : '🔍 檢視結果'}</a>`
         : '<span class="no-perm" title="這次測驗沒有留下結果圖">尚無圖片</span>';
 
