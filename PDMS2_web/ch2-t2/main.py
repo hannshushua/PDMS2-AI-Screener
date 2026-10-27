@@ -256,7 +256,8 @@ def main(img_path):
         print(f"{img_path} 不是 {TARGET}!")
         return 0, img
 
-    # 得出 warped A4（評分用，維持原本 A4 量測）；A4 輪廓找不到就直接用原圖評分
+    # 得出 warped A4（評分用，維持原本 A4 量測）；A4 輪廓找不到 (紙超出畫面等) 就改用
+    # prepare 圈到的圖形範圍評分 —— 整張原圖會把紙外的支架 / 桌緣也當筆跡，缺口數暴增直接 0 分
     try:
         _, _, cropped_path = get_pixel_per_cm_from_a4(
             img_path,
@@ -265,8 +266,11 @@ def main(img_path):
             output_folder=target_dir / "cropped_a4",
         )
     except ValueError as e:
-        print(f"A4 量測失敗（{e}），改用原圖評分")
-        cropped_path = img_path
+        x1, y1, x2, y2 = r["bbox"]
+        os.makedirs(target_dir / "cropped_a4", exist_ok=True)
+        cropped_path = str(target_dir / "cropped_a4" / f"{stem}_shape_cropped.jpg")
+        cv2.imwrite(cropped_path, cv2.imread(img_path)[y1:y2, x1:x2])
+        print(f"A4 量測失敗（{e}），改用圖形範圍評分: {cropped_path}")
 
     # 方形 -> 交給 SquareGapAnalyzer 評分（評分邏輯不變，仍吃 warped A4）
     SGA = SquareGapAnalyzer()
