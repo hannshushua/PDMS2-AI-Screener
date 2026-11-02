@@ -1,14 +1,19 @@
 """
-PDMS-2 項目 24：扣上鈕扣（跨機器後端計時 + 雙 YOLO 模型，單檔獨立執行，不依賴根目錄任何檔案）
+PDMS-2 項目 24：扣上鈕扣（跨機器後端計時 + 兩階段 YOLO + 縫線顏色判定，單檔獨立執行，不依賴根目錄任何檔案）
 
     python main.py start    <uid>             按下「開始測驗」→ 約 2 秒後開始計時（寫入共享計時表）
     python main.py stop     <uid>             按下「拍照」→ 立即停止計時並算出總秒數（寫入共享計時表）
     python main.py evaluate <uid> <img_id>    讀共享計時表的秒數 + 照片 kid/<uid>/<img_id>.jpg → 評分
     python main.py <uid> <img_id>             同 evaluate（MacWeb /api/analysis/submit 的呼叫格式）
 
-評分：布料內偵測到「扣上」的鈕扣 N ≥ 3 且 ≤ 75 秒 = 2 分；> 75 秒 = 1 分；N < 3 = 0 分。
-推論：models/cloth.pt 找布料框（外擴 padding）→ models/button.pt（conf 0.25）以整張原圖抓 button / tape，
-      只保留中心點在布料框內的框 → 同類別 NMS 去除重疊框 → 依扣上的鈕扣數量 + 共享計時表的秒數給分。
+關卡：初始紅（ID 1）、綠（ID 2）扣上 → 測驗者扣上藍（ID 3）並解開紅 / 綠（至少一顆）。
+評分：最終布料上偵測到藍 且 紅 + 綠 ≤ 1 顆；≤ 20 秒 = 2 分、> 20 秒 = 1 分；其他情況 = 0 分（同 1024.py）。
+推論：cloth.pt（segment，conf 0.5）找布料 → 外接框外擴 CLOTH_PAD px 裁切 ROI（沒抓到布料改用全圖）
+      → button.pt 在 ROI 內找 button（conf 0.10）+ target 類別（conf 0.15），ROI 與整張照片同比例推論 → NMS 去重
+      → 每顆鈕扣的顏色：button 內有 target 用 target 類別，沒有用 thread_color（CIELAB），button 漏抓用 target 補回
+      → 依顏色組合 + 共享計時表的秒數給分。
+模型：PDMS2_web/models/（與 Ch5-t2 共用同一組 cloth.pt + button.pt）。
+扣上的鈕扣會露出在布條上、解開的只剩空洞眼 → 布條上偵測到的鈕扣 = 扣上，用縫線顏色分辨是哪一顆。
 成果圖：kid/<uid>/<img_id>_result.jpg（MacWeb write_remote_results 會依檔名抓去當 result_img_path）。
 
 結束碼（沿用 MacWeb 慣例：0/1/2 = 分數，其他 = 分析失敗 -1）：
@@ -16,7 +21,7 @@ PDMS-2 項目 24：扣上鈕扣（跨機器後端計時 + 雙 YOLO 模型，單�
 共享計時表：MySQL `ch5_button_timer`（主鍵 uid + task_id，Ch5-t2 / Ch5-t3 共用，第一次執行自動建立）。
 DB 連線：環境變數 DB_HOST / DB_PORT / DB_USER / DB_PASSWORD / DB_NAME 優先，否則讀 PDMS2_web/.env。
 計時一律用 DB 伺服器時鐘（UNIX_TIMESTAMP(NOW(3))），start / stop 在哪台機器呼叫都不受本機時鐘誤差影響。
-evaluate 時 DB 連不上、或沒有本輪計時紀錄（未 start / 已評分過）不中斷評分：完成給 1 分，判定寫明「無計時紀錄，無法確認是否在 75 秒內」。
+evaluate 時 DB 連不上、或沒有本輪計時紀錄（未 start / 已評分過）不中斷評分：完成給 1 分，判定寫明「無計時紀錄，無法確認是否在 20 秒內」。
 run.py 可用子行程呼叫 start / stop / evaluate，或 import 後直接呼叫 run_start / run_stop / run_evaluate。
 """
 from __future__ import annotations
@@ -26,6 +31,7 @@ import os
 import re
 import sys
 import traceback
+from collections import Counter
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
@@ -46,28 +52,44 @@ except BaseException as _e:  # noqa: BLE001
 TASK_ID = "Ch5-t3"                 # 與 run.py / MacWeb TASK_MAP 的 key 相同
 ITEM = 24
 TITLE = "PDMS-2 項目 24：扣上鈕扣"
-TIME_LIMIT = 75.0                  # 秒數 <= TIME_LIMIT → 2 分；超過 → 1 分
-DONE_LABEL = "3 顆鈕扣皆已扣上"     # 最終狀態達成時的判定文字
+TIME_LIMIT = 20.0                  # 秒數 <= TIME_LIMIT → 2 分；超過 → 1 分
+COLOR_IDS = {"red": 1, "green": 2, "blue": 3}
+COLOR_ZH = {"red": "紅", "green": "綠", "blue": "藍"}
 
 LEVEL_DIR = Path(__file__).resolve().parent
 PROJECT_DIR = LEVEL_DIR.parent                                   # PDMS2_web
-MODEL_DIRS = (LEVEL_DIR / "models", PROJECT_DIR / "models")      # 依序尋找模型檔
-CLOTH_MODEL_NAME = "cloth.pt"      # 模型 A：布料
-OBJECT_MODEL_NAME = "button.pt"    # 模型 B：button、tape
+MODEL_DIR = PROJECT_DIR / "models"
+CLOTH_MODEL_NAME = "cloth.pt"      # 第一階段：布條（segment）
+OBJECT_MODEL_NAME = "button.pt"    # 第二階段：button + 模型內建縫線 target 類別（雙重來源）
 CLOTH_CONF = 0.5
-OBJECT_CONF = 0.25
-YOLO_IMGSZ = 640
+# 雙重來源（Dual Source）：button 類別 + 模型內建 target 類別（blue_target / green_target / rad_target）
+#   1. button（conf ≥ OBJECT_CONF）裡有 target 框 → 顏色用 COLOR_SOURCE 決定（"model" = target 類別；"lab" = thread_color）
+#   2. button 裡沒有 target 框 → 顏色用 thread_color（CIELAB）
+#   3. target 框（conf ≥ TARGET_CONF）沒落在任何 button 裡（button 被漏抓）→ 單靠 target 補回這顆鈕扣
+# 粉紅布上的白鈕扣對比低，button 信心常只有 0.05~0.25，但縫線 target 信心常 0.4~0.7 → 用 target 補回
+OBJECT_CONF = 0.10
+TARGET_CONF = 0.15
+COLOR_SOURCE = "model"
+TARGET_COLOR_MAP = {"blue_target": "blue", "green_target": "green", "rad_target": "red", "red_target": "red"}
+YOLO_IMGSZ = 640                   # 兩個模型訓練時的 imgsz（整張照片）
+# ROI 推論尺寸：裁切後的布料只有約 200 px，若直接放大到 640，鈕扣會比訓練時大好幾倍（粉紅布上信心掉到 0.05~0.25）。
+# True = ROI 用「整張照片縮到 YOLO_IMGSZ」的同一比例推論（imgsz = ROI 長邊 × YOLO_IMGSZ / 照片長邊），鈕扣大小與訓練一致
+OBJECT_SAME_SCALE = True
 YOLO_DEVICE: Optional[str] = None  # None = 自動（有 GPU 用 GPU）；可設 "cpu"、"0"
 
-CLOTH_CLASS_NAMES: Optional[Tuple[str, ...]] = None   # None = 接受模型 A 的任何類別
-BUTTON_CLASS_NAMES = ("button",)                      # 鈕扣扣進洞眼才會露出在布條上 → 計為「扣上」（計分依據）
-TAPE_CLASS_NAMES = ("tape",)                          # tape 代表洞眼（僅繪圖 / 輸出參考，不計分）
+CLOTH_PAD = 15                     # 布料外接框往四周外擴的 px
+CLOTH_FALLBACK_FULL_IMAGE = True   # 沒抓到布料時：True = 改用全圖繼續評分；False = 直接 0 分
+BUTTON_CLASS_NAMES = ("button",)
 
-NMS_IOU = 0.45                    # 同類別兩框 IoU ≥ 此值 → 視為同一物件，只留信心較高者
-NMS_CONTAIN = 0.7                 # 小框有 ≥ 此比例面積落在大框內（巢狀重疊框）→ 也視為同一物件
-CLOTH_PAD_RATIO = 0.05            # 布料框外擴比例，避免邊緣的鈕扣 / 膠帶被排除
-CLOTH_FALLBACK_FULL_IMAGE = True  # 沒抓到布料時：True = 改用全圖繼續評分；False = 直接 0 分
-NUM_BUTTONS = 3                   # 需扣上的鈕扣數量
+NMS_IOU = 0.45                     # 同類別兩框 IoU ≥ 此值 → 視為同一物件，只留信心較高者
+NMS_CONTAIN = 0.7                  # 小框有 ≥ 此比例面積落在大框內（巢狀重疊框）→ 也視為同一物件
+
+# thread_color：button 中間 THREAD_CENTER 比例範圍內，跟 button 底色（中位數）LAB 差最多的前 THREAD_TOP 像素當縫線，
+# 看縫線平均的 a（紅+ 綠-）、b（黃+ 藍-）
+THREAD_CENTER = 0.7
+THREAD_TOP = 0.15
+THREAD_RED_A = 12                  # a 大於此值 → 紅
+THREAD_BLUE_B = -8                 # 否則 b 小於此值 → 藍，其他 → 綠
 
 START_DELAY = 2.0                 # 按下「開始測驗」後幾秒才開始計時（已寫進 start_at，duration 已扣除，不可重扣）
 FALLBACK_ELAPSED: Optional[float] = None   # 沒有本輪計時紀錄時的秒數；None = 無法確認 ≦ 限時 → 完成給 1 分
@@ -79,14 +101,25 @@ ENV_PATHS = (PROJECT_DIR / ".env",)
 TIMER_TABLE = "ch5_button_timer"
 
 
-def score_task(button_count: int, tape_count: int, elapsed: Optional[float]) -> Tuple[int, bool, str]:
-    """回傳 (分數, 最終狀態是否達成, 判定說明)。
-    扣上數 < NUM_BUTTONS → 0 分；達成且 <= 限時 → 2 分；超過限時 → 1 分（以「超過限時」判 1 分，避免整數秒之間的空窗）。
+def score_task(colors: Dict[str, int], elapsed: Optional[float]) -> Tuple[int, bool, str]:
+    """colors：{"red": n, "green": n, "blue": n}。回傳 (分數, 最終狀態是否達成, 判定說明)。
+    藍 ≥ 1 且 紅 + 綠 ≤ 1（解開 1 顆或 2 顆皆解開）→ 達成；達成且 <= 限時 → 2 分；超過限時 → 1 分；否則 0 分。
+    （以「超過限時」判 1 分，避免整數秒之間的空窗。）
     秒數先四捨五入到小數兩位，判定與顯示一致；elapsed 為 None（沒有本輪計時紀錄）→ 達成也只給 1 分。
     """
-    if button_count < NUM_BUTTONS:
-        return 0, False, f"未完成：扣上的鈕扣 {button_count}/{NUM_BUTTONS} 個"
-    state = f"扣上的鈕扣 {button_count} 個 ≧ {NUM_BUTTONS}，{DONE_LABEL}"
+    red, green, blue = colors["red"], colors["green"], colors["blue"]
+    counts = f"（紅 {red}、綠 {green}、藍 {blue}）"
+    if blue < 1:
+        return 0, False, f"未完成：藍色鈕扣（ID 3）未扣上{counts}"
+    if red + green == 2:
+        return 0, False, f"未完成：紅、綠鈕扣都沒解開（需至少解開 1 顆）{counts}"
+    if red + green > 2:
+        return 0, False, f"未完成：紅 + 綠偵測數量異常（{red + green} 顆）{counts}"
+    if red + green == 0:
+        state = "藍（ID 3）已扣上、紅（ID 1）與綠（ID 2）皆已解開"
+    else:
+        kept, opened = ("紅（ID 1）", "綠（ID 2）") if red else ("綠（ID 2）", "紅（ID 1）")
+        state = f"藍（ID 3）已扣上、{opened}已解開、{kept}保留"
     if elapsed is None:
         return 1, True, f"{state}；{NO_TIMER_REASON}"
     elapsed = round(elapsed, 2)
@@ -112,7 +145,7 @@ CREATE TABLE IF NOT EXISTS `{TIMER_TABLE}` (
   `status` varchar(16) NOT NULL,
   `score` int(11) DEFAULT NULL,
   `button_count` int(11) DEFAULT NULL,
-  `tape_count` int(11) DEFAULT NULL,
+  `target_count` int(11) DEFAULT NULL,
   `cloth_detected` tinyint(1) DEFAULT NULL,
   `img_id` varchar(64) DEFAULT NULL,
   `result_img_path` varchar(255) DEFAULT NULL,
@@ -160,6 +193,8 @@ class TimerStore:
         self.conn = pymysql.connect(**_db_config(), charset="utf8mb4", autocommit=True, connect_timeout=10,
                                     cursorclass=pymysql.cursors.DictCursor)
         self._exec(CREATE_TIMER_SQL)
+        if self._exec(f"SHOW COLUMNS FROM `{TIMER_TABLE}` LIKE 'tape_count'"):  # 舊版（button / tape 模型）建的表
+            self._exec(f"ALTER TABLE `{TIMER_TABLE}` CHANGE `tape_count` `target_count` int(11) DEFAULT NULL")
 
     def __enter__(self) -> "TimerStore":
         return self
@@ -183,7 +218,7 @@ class TimerStore:
                 VALUES (%s, %s, UNIX_TIMESTAMP(NOW(3)), UNIX_TIMESTAMP(NOW(3)) + %s, 'started')
                 ON DUPLICATE KEY UPDATE pressed_at=VALUES(pressed_at), start_at=VALUES(start_at),
                     stop_at=NULL, duration=NULL, status='started', score=NULL, button_count=NULL,
-                    tape_count=NULL, cloth_detected=NULL, img_id=NULL, result_img_path=NULL, result_json=NULL""",
+                    target_count=NULL, cloth_detected=NULL, img_id=NULL, result_img_path=NULL, result_json=NULL""",
             (uid, TASK_ID, START_DELAY))
         return self._get(uid)
 
@@ -215,10 +250,10 @@ class TimerStore:
                       if res.result_image and Path(res.result_image).is_relative_to(PROJECT_DIR)
                       else res.result_image)
         n = self._exec(
-            f"""UPDATE `{TIMER_TABLE}` SET status='evaluated', score=%s, button_count=%s, tape_count=%s,
+            f"""UPDATE `{TIMER_TABLE}` SET status='evaluated', score=%s, button_count=%s, target_count=%s,
                     cloth_detected=%s, img_id=%s, result_img_path=%s, result_json=%s
                 WHERE uid=%s AND task_id=%s""",
-            (res.score, res.button_count, res.tape_count, int(res.cloth_detected), img_id, result_img,
+            (res.score, res.button_count, res.target_count, int(res.cloth_detected), img_id, result_img,
              json.dumps(res.to_dict(), ensure_ascii=False), uid, TASK_ID))
         if n == 0 and self._get(uid) is None:
             raise RuntimeError(f"寫入評分結果失敗：計時紀錄已不存在（uid={uid}）")
@@ -240,10 +275,9 @@ def find_image(uid: str, img_id: str) -> Path:
 
 
 def find_model(name: str) -> Path:
-    for d in MODEL_DIRS:
-        if (d / name).is_file():
-            return d / name
-    raise FileNotFoundError(f"找不到 YOLO 模型 {name}（已搜尋 {', '.join(str(d) for d in MODEL_DIRS)}）")
+    if not (MODEL_DIR / name).is_file():
+        raise FileNotFoundError(f"找不到 YOLO 模型：{MODEL_DIR / name}")
+    return MODEL_DIR / name
 
 
 def imread_unicode(path: str) -> Optional[np.ndarray]:
@@ -261,41 +295,60 @@ def imwrite_unicode(path: str, img: np.ndarray) -> str:
 
 
 # ============================================================
-# 4. YOLO 兩階段推論
+# 4. 兩階段推論
 # ============================================================
 @dataclass
 class Detection:
     cls_name: str
-    conf: float
+    conf: Optional[float]                    # 顏色判定出的 target 沒有 conf
     box: Tuple[float, float, float, float]   # x1, y1, x2, y2（原圖座標）
+    source: str = ""                         # target 來源："model"（button + target 類別）、"lab"（button + thread_color）、
+                                             #             "target"（button 漏抓，只靠 target 補回）
+
+    def shifted(self, dx: float, dy: float) -> "Detection":
+        x1, y1, x2, y2 = self.box
+        return Detection(self.cls_name, self.conf, (x1 + dx, y1 + dy, x2 + dx, y2 + dy), self.source)
 
 
-class YoloModel:
-    """包裝 Ultralytics YOLO；模型檔不存在時直接報錯（不應在缺模型時默默給分）。"""
-
-    def __init__(self, model_path: Path, conf: float):
-        from ultralytics import YOLO  # 延遲匯入：start / stop 不需要載入 torch
-        self.model = YOLO(str(model_path))
-        self.conf = conf
-
-    def detect(self, img: np.ndarray) -> List[Detection]:
-        kwargs = dict(conf=self.conf, imgsz=YOLO_IMGSZ, verbose=False)
-        if YOLO_DEVICE is not None:
-            kwargs["device"] = YOLO_DEVICE
-        r = self.model.predict(img, **kwargs)[0]
-        if r.boxes is None or len(r.boxes) == 0:
-            return []
-        return [Detection(r.names[int(c)], float(cf), tuple(float(v) for v in b))
-                for b, cf, c in zip(r.boxes.xyxy.cpu().numpy(), r.boxes.conf.cpu().numpy(),
-                                    r.boxes.cls.cpu().numpy().astype(int))]
+def load_yolo(model_path: Path):
+    from ultralytics import YOLO  # 延遲匯入：start / stop 不需要載入 torch
+    return YOLO(str(model_path))
 
 
-def pad_box(img: np.ndarray, box) -> Tuple[int, int, int, int]:
-    """布料框外擴 CLOTH_PAD_RATIO 並夾在影像範圍內，回傳 x1, y1, x2, y2。"""
-    h, w = img.shape[:2]
-    x1, y1, x2, y2 = box
-    px, py = (x2 - x1) * CLOTH_PAD_RATIO, (y2 - y1) * CLOTH_PAD_RATIO
-    return max(0, int(x1 - px)), max(0, int(y1 - py)), min(w, int(np.ceil(x2 + px))), min(h, int(np.ceil(y2 + py)))
+def predict(model, img: np.ndarray, conf: float, imgsz: int = YOLO_IMGSZ):
+    kwargs = dict(conf=conf, imgsz=imgsz, verbose=False)
+    if YOLO_DEVICE is not None:
+        kwargs["device"] = YOLO_DEVICE
+    return model.predict(img, **kwargs)[0]
+
+
+def roi_imgsz(roi: np.ndarray, full: np.ndarray) -> int:
+    """ROI 推論尺寸：與整張照片縮到 YOLO_IMGSZ 同比例（32 的倍數，不超過 YOLO_IMGSZ）。"""
+    if not OBJECT_SAME_SCALE:
+        return YOLO_IMGSZ
+    return int(min(YOLO_IMGSZ, max(64, np.ceil(max(roi.shape[:2]) * YOLO_IMGSZ / max(full.shape[:2]) / 32) * 32)))
+
+
+def find_cloth(model, img: np.ndarray) -> Tuple[Optional[Tuple[int, int, int, int]], Optional[float]]:
+    """第一階段：所有布料遮罩的外接框外擴 CLOTH_PAD px（不超出畫面），回傳 (x1, y1, x2, y2), 最高 conf；找不到回傳 (None, None)。"""
+    r = predict(model, img, CLOTH_CONF)
+    if r.boxes is None or len(r.boxes) == 0:
+        return None, None
+    H, W = img.shape[:2]
+    if r.masks is not None and len(r.masks):
+        mask = np.zeros((H, W), np.uint8)
+        for poly in r.masks.xy:
+            if len(poly) >= 3:
+                cv2.fillPoly(mask, [np.round(poly).astype(np.int32)], 255)
+        if not mask.any():
+            return None, None
+        x, y, w, h = cv2.boundingRect(mask)
+        x1, y1, x2, y2 = x, y, x + w, y + h
+    else:  # 偵測模型（沒有遮罩）：用所有框的外接框
+        b = r.boxes.xyxy.cpu().numpy()
+        x1, y1, x2, y2 = int(b[:, 0].min()), int(b[:, 1].min()), int(np.ceil(b[:, 2].max())), int(np.ceil(b[:, 3].max()))
+    box = max(x1 - CLOTH_PAD, 0), max(y1 - CLOTH_PAD, 0), min(x2 + CLOTH_PAD, W), min(y2 + CLOTH_PAD, H)
+    return box, float(r.boxes.conf.max())
 
 
 def _overlap(a, b) -> Tuple[float, float]:
@@ -309,18 +362,44 @@ def _overlap(a, b) -> Tuple[float, float]:
     return (inter / union if union > 0 else 0.0), (inter / min(area_a, area_b) if min(area_a, area_b) > 0 else 0.0)
 
 
-def dedupe_detections(dets: List[Detection]) -> List[Detection]:
-    """同類別 NMS：依信心由高到低保留，與已保留框重疊（IoU ≥ NMS_IOU 或巢狀 ≥ NMS_CONTAIN）者捨棄，
-    避免低信心門檻下同一個鈕扣 / 膠帶被重複計數。"""
+def dedupe_detections(dets: List[Detection], same_class_only: bool = True) -> List[Detection]:
+    """NMS：依信心由高到低保留，與已保留框重疊（IoU ≥ NMS_IOU 或巢狀 ≥ NMS_CONTAIN）者捨棄。
+    same_class_only=False：不分類別（同一條縫線被判成兩種顏色的 target 時，只留 conf 高的）。"""
     def same_object(a: Detection, b: Detection) -> bool:
         iou, contain = _overlap(a.box, b.box)
-        return a.cls_name == b.cls_name and (iou >= NMS_IOU or contain >= NMS_CONTAIN)
+        return (not same_class_only or a.cls_name == b.cls_name) and (iou >= NMS_IOU or contain >= NMS_CONTAIN)
 
     kept: List[Detection] = []
-    for d in sorted(dets, key=lambda d: d.conf, reverse=True):
+    for d in sorted(dets, key=lambda d: d.conf or 0.0, reverse=True):
         if not any(same_object(k, d) for k in kept):
             kept.append(d)
     return kept
+
+
+def _inside(box, outer) -> bool:
+    """box 的中心點是否落在 outer 裡。"""
+    cx, cy = (box[0] + box[2]) / 2, (box[1] + box[3]) / 2
+    return outer[0] <= cx <= outer[2] and outer[1] <= cy <= outer[3]
+
+
+def thread_color(img: np.ndarray, box) -> Optional[Tuple[str, Tuple[int, int, int, int], float, float]]:
+    """button 框裡的縫線顏色 → ("red" / "blue" / "green", 縫線框 (x1, y1, x2, y2), a, b)；切不到回傳 None。"""
+    x1, y1, x2, y2 = box
+    mx, my = (x2 - x1) * (1 - THREAD_CENTER) / 2, (y2 - y1) * (1 - THREAD_CENTER) / 2
+    cx1, cy1 = max(int(x1 + mx), 0), max(int(y1 + my), 0)
+    cx2, cy2 = min(int(x2 - mx), img.shape[1]), min(int(y2 - my), img.shape[0])
+    if cx2 - cx1 < 3 or cy2 - cy1 < 3:
+        return None
+    lab = cv2.cvtColor(img[cy1:cy2, cx1:cx2], cv2.COLOR_BGR2LAB).astype(np.float32)
+    d = np.linalg.norm(lab - np.median(lab.reshape(-1, 3), 0), axis=2)
+    sel = d >= np.percentile(d, 100 * (1 - THREAD_TOP))
+    a, b = (lab[sel][:, 1:].mean(0) - 128).tolist()
+    color = "red" if a > THREAD_RED_A else "blue" if b < THREAD_BLUE_B else "green"
+    # 縫線框：選到的像素裡最大的一塊
+    n, _, st, _ = cv2.connectedComponentsWithStats(sel.astype(np.uint8), connectivity=8)
+    k = 1 + int(np.argmax(st[1:, cv2.CC_STAT_AREA])) if n > 1 else 0
+    tx, ty, tw, th = (int(v) for v in st[k, :4])
+    return color, (cx1 + tx, cy1 + ty, cx1 + tx + tw, cy1 + ty + th), a, b
 
 
 @dataclass
@@ -331,26 +410,29 @@ class EvalResult:
     elapsed_seconds: Optional[float]        # None = 沒有本輪計時紀錄
     time_limit: float
     score: int
-    passed_state: bool                      # 最終狀態是否達成（扣上的鈕扣數足夠）
-    button_count: int                       # N：布料內扣上的鈕扣數（計分依據）
-    tape_count: int
+    passed_state: bool                      # 是否達成「藍扣上 + 紅 + 綠 ≤ 1」
+    button_count: int
+    target_count: int
+    target_colors: dict                     # {"red": n, "green": n, "blue": n}（計分依據）
+    detected_ids: List[int]                 # 偵測到的鈕扣 ID（1 紅、2 綠、3 藍）
+    target_sources: dict                    # {"model": n, "lab": n, "target": n}：每顆鈕扣的判定來源
     cloth_detected: bool
     cloth_box: Optional[List[int]]          # 布料範圍（含外擴），原圖座標
     message: str
     result_image: Optional[str] = None
-    cloth: Optional[Detection] = field(default=None, repr=False)
-    objects: List[Detection] = field(default_factory=list, repr=False)
+    cloth_conf: Optional[float] = field(default=None, repr=False)
+    buttons: List[Detection] = field(default_factory=list, repr=False)
+    targets: List[Detection] = field(default_factory=list, repr=False)
 
     def to_dict(self) -> dict:
         d = asdict(self)
-        d.pop("cloth")
-        d.pop("objects")
+        for k in ("cloth_conf", "buttons", "targets"):
+            d.pop(k)
         return d
 
 
 def evaluate_image(image_path: Path, elapsed: Optional[float]) -> EvalResult:
-    """照片 → cloth.pt 找布料框 → button.pt 以整張原圖抓 button / tape（只留布料框內）→ NMS 去重 → 給分 → 成果圖。
-    不裁切放大：button.pt 以整張照片訓練，裁切後物件尺度與訓練不符會抓不到。
+    """照片 → cloth.pt 找布料 ROI → button.pt 找 button + target → NMS → 雙重來源判定顏色 → 給分 → 成果圖。
     成果圖存在原圖旁：kid/<uid>/<img_id>.jpg → kid/<uid>/<img_id>_result.jpg"""
     path = os.path.abspath(image_path)
     img = imread_unicode(path)
@@ -358,35 +440,57 @@ def evaluate_image(image_path: Path, elapsed: Optional[float]) -> EvalResult:
         raise ValueError(f"無法解碼圖片：{image_path}")
     cloth_model_path, object_model_path = find_model(CLOTH_MODEL_NAME), find_model(OBJECT_MODEL_NAME)
 
-    # 模型 A：布料（取信心最高者）
-    cands = [d for d in YoloModel(cloth_model_path, CLOTH_CONF).detect(img)
-             if CLOTH_CLASS_NAMES is None or d.cls_name in CLOTH_CLASS_NAMES]
-    cloth = max(cands, key=lambda d: d.conf) if cands else None
-    region = pad_box(img, cloth.box) if cloth is not None else None
+    # 第一階段：布料 → ROI
+    region, cloth_conf = find_cloth(load_yolo(cloth_model_path), img)
     usable = region is not None or CLOTH_FALLBACK_FULL_IMAGE
 
-    # 模型 B：整張原圖偵測 button / tape，只保留中心點落在布料框內的框（排除背景、衣服上的扣子等雜訊）
-    objects: List[Detection] = []
+    # 第二階段：ROI 內找 button + target 類別（座標換回原圖），每顆鈕扣一個 target（見雙重來源說明）
+    buttons: List[Detection] = []
+    targets: List[Detection] = []
     if usable:
-        wanted = BUTTON_CLASS_NAMES + TAPE_CLASS_NAMES
-        objects = [d for d in YoloModel(object_model_path, OBJECT_CONF).detect(img) if d.cls_name in wanted]
-        if region is not None:
-            objects = [d for d in objects
-                       if region[0] <= (d.box[0] + d.box[2]) / 2 <= region[2]
-                       and region[1] <= (d.box[1] + d.box[3]) / 2 <= region[3]]
-        objects = dedupe_detections(objects)
-    n_button = sum(d.cls_name in BUTTON_CLASS_NAMES for d in objects)
-    n_tape = sum(d.cls_name in TAPE_CLASS_NAMES for d in objects)
+        x1, y1, x2, y2 = region or (0, 0, img.shape[1], img.shape[0])
+        roi = img[y1:y2, x1:x2]
+        r = predict(load_yolo(object_model_path), roi, min(OBJECT_CONF, TARGET_CONF), roi_imgsz(roi, img))
+        raw_targets: List[Detection] = []
+        if r.boxes is not None and len(r.boxes):
+            for b, cf, c in zip(r.boxes.xyxy.cpu().numpy(), r.boxes.conf.cpu().numpy(), r.boxes.cls.cpu().numpy().astype(int)):
+                name, cf = r.names[int(c)], float(cf)
+                det = Detection(name, cf, tuple(float(v) for v in b)).shifted(x1, y1)
+                if name in BUTTON_CLASS_NAMES and cf >= OBJECT_CONF:
+                    buttons.append(det)
+                elif name in TARGET_COLOR_MAP and cf >= TARGET_CONF:
+                    raw_targets.append(det)
+        buttons = dedupe_detections(buttons)
+        raw_targets = dedupe_detections(raw_targets, same_class_only=False)
+        used = set()
+        for btn in buttons:
+            inner = [i for i, t in enumerate(raw_targets) if i not in used and _inside(t.box, btn.box)]
+            best = max(inner, key=lambda i: raw_targets[i].conf) if inner else None
+            used.update(inner)
+            lab = thread_color(img, btn.box) if best is None or COLOR_SOURCE == "lab" else None
+            if best is not None and (COLOR_SOURCE == "model" or lab is None):
+                t = raw_targets[best]
+                targets.append(Detection(f"{TARGET_COLOR_MAP[t.cls_name]}_target", t.conf, t.box, "model"))
+            elif lab is not None:
+                targets.append(Detection(f"{lab[0]}_target", None, tuple(float(v) for v in lab[1]), "lab"))
+        for i, t in enumerate(raw_targets):  # button 漏抓：只靠 target 補回
+            if i not in used:
+                targets.append(Detection(f"{TARGET_COLOR_MAP[t.cls_name]}_target", t.conf, t.box, "target"))
+    colors = Counter(t.cls_name.split("_")[0] for t in targets)
+    sources = Counter(t.source for t in targets)
+    target_colors = {c: colors.get(c, 0) for c in COLOR_IDS}
 
     if not usable:
         score, passed, msg = 0, False, "未偵測到布料，無法評分"
     else:
-        score, passed, msg = score_task(n_button, n_tape, elapsed)
-        if cloth is None:
+        score, passed, msg = score_task(target_colors, elapsed)
+        if region is None:
             msg += "（未偵測到布料，改用全圖）"
 
-    res = EvalResult(path, TASK_ID, ITEM, elapsed, TIME_LIMIT, score, passed, n_button, n_tape,
-                     cloth is not None, list(region) if region else None, msg, None, cloth, objects)
+    res = EvalResult(path, TASK_ID, ITEM, elapsed, TIME_LIMIT, score, passed, len(buttons), len(targets),
+                     target_colors, sorted(COLOR_IDS[c] for c, n in target_colors.items() if n),
+                     {k: sources.get(k, 0) for k in ("model", "lab", "target")}, region is not None,
+                     list(region) if region else None, msg, None, cloth_conf, buttons, targets)
     out_path = str(Path(path).with_name(Path(path).stem + "_result.jpg"))
     try:  # 成果圖存檔失敗不影響分數
         res.result_image = imwrite_unicode(out_path, render_result_image(res, img))
@@ -398,9 +502,9 @@ def evaluate_image(image_path: Path, elapsed: Optional[float]) -> EvalResult:
 # ============================================================
 # 5. 成果圖
 # ============================================================
-COLOR_CLOTH = (0, 220, 0)
+COLOR_CLOTH = (255, 0, 255)
 COLOR_BUTTON = (0, 165, 255)
-COLOR_TAPE = (255, 255, 0)
+TARGET_COLORS = {"red": (0, 0, 255), "green": (0, 200, 0), "blue": (255, 0, 0)}
 SCORE_COLOR = {2: (0, 220, 0), 1: (0, 165, 255), 0: (0, 0, 255)}
 
 FONT_CANDIDATES = [
@@ -413,23 +517,44 @@ FONT_CANDIDATES = [
 ]
 
 
+def _load_font(size: int):
+    """回傳 Pillow 中文字型；無 Pillow 或找不到中文字型回傳 None（改用 cv2，中文會顯示為 ?）。"""
+    font_path = next((p for p in FONT_CANDIDATES if os.path.isfile(p)), None)
+    if font_path is None:
+        return None
+    try:
+        from PIL import ImageFont
+    except ImportError:
+        return None
+    return ImageFont.truetype(font_path, size)
+
+
+def wrap_text(text: str, size: int, max_w: int) -> List[str]:
+    """依面板寬度把一行切成多行（中文沒有空白，逐字量寬度），避免判定文字超出照片寬度被截掉。"""
+    font = _load_font(size)
+    width = font.getlength if font is not None else (lambda s: len(s) * size * 0.6)
+    rows, cur = [], ""
+    for ch in text:
+        if cur and width(cur + ch) > max_w:
+            rows.append(cur)
+            cur = ""
+        cur += ch
+    return rows + [cur]
+
+
 def draw_texts(img: np.ndarray, items) -> None:
     """中文字繪製（cv2.putText 不支援中文，改用 Pillow）。items：[(文字, (x, y) 左上角, BGR, 字級), ...]"""
-    font_path = next((p for p in FONT_CANDIDATES if os.path.isfile(p)), None)
-    try:
-        from PIL import Image, ImageDraw, ImageFont
-    except ImportError:
-        font_path = None
-    if font_path is None:  # 無 Pillow 或中文字型：退回 cv2（中文會顯示為 ?）
+    if _load_font(12) is None:  # 無 Pillow 或中文字型：退回 cv2（中文會顯示為 ?）
         for text, (x, y), color, size in items:
             cv2.putText(img, text, (x, y + size), cv2.FONT_HERSHEY_SIMPLEX, size / 32, color, 1, cv2.LINE_AA)
         return
+    from PIL import Image, ImageDraw
     pil = Image.fromarray(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
     draw = ImageDraw.Draw(pil)
     fonts = {}
     for text, (x, y), (b, g, r), size in items:
         if size not in fonts:
-            fonts[size] = ImageFont.truetype(font_path, size)
+            fonts[size] = _load_font(size)
         draw.text((x, y), text, font=fonts[size], fill=(r, g, b), stroke_width=2, stroke_fill=(0, 0, 0))
     img[:] = cv2.cvtColor(np.asarray(pil), cv2.COLOR_RGB2BGR)
 
@@ -437,6 +562,8 @@ def draw_texts(img: np.ndarray, items) -> None:
 def _draw_box(img: np.ndarray, box, color, label: str, thickness: int = 2) -> None:
     x1, y1, x2, y2 = (int(v) for v in box)
     cv2.rectangle(img, (x1, y1), (x2, y2), color, thickness)
+    if not label:
+        return
     org = (x1, max(14, y1 - 6))
     cv2.putText(img, label, org, cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 3, cv2.LINE_AA)
     cv2.putText(img, label, org, cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 1, cv2.LINE_AA)
@@ -446,38 +573,49 @@ def fmt_elapsed(seconds: Optional[float]) -> str:
     return "無計時紀錄" if seconds is None else f"{seconds:.2f} 秒"
 
 
+def render_header(lines, w: int) -> np.ndarray:
+    """資訊面板：lines = [(文字, BGR, 字級), ...]，超出寬度自動換行。"""
+    pad = max(lines[0][2] // 2, 4)
+    rows = [(part, color, sz) for text, color, sz in lines for part in wrap_text(text, sz, w - pad * 2)]
+    header = np.full((pad * 2 + sum(int(sz * 1.35) for *_, sz in rows), w, 3), 40, np.uint8)
+    items, y = [], pad
+    for text, color, sz in rows:
+        items.append((text, (pad, y), color, sz))
+        y += int(sz * 1.35)
+    draw_texts(header, items)
+    return header
+
+
 def render_result_image(res: EvalResult, img: np.ndarray) -> np.ndarray:
-    """成果圖：上方資訊面板（項目、秒數、得分、判定、偵測數量）+ 下方原圖（布料範圍 + 物件框 + 圖例）。"""
+    """成果圖：上方資訊面板（項目、秒數、得分、判定、標記數量）+ 下方原圖（布料範圍 + button 框 + target 框 + 圖例）。"""
     vis = img.copy()
     if res.cloth_box is not None:
-        _draw_box(vis, res.cloth_box, COLOR_CLOTH, f"cloth {res.cloth.conf:.2f}", 3)
-    for d in res.objects:
-        color = COLOR_BUTTON if d.cls_name in BUTTON_CLASS_NAMES else COLOR_TAPE
-        _draw_box(vis, d.box, color, f"{d.cls_name} {d.conf:.2f}")
+        _draw_box(vis, res.cloth_box, COLOR_CLOTH, f"cloth {res.cloth_conf:.2f}", 3)
+    for d in res.buttons:
+        _draw_box(vis, d.box, COLOR_BUTTON, f"button {d.conf:.2f}")
+    for d in res.targets:  # target 在 button 框裡不寫字（會互相擋住），類別靠顏色分；只靠 target 補回的才標 conf
+        _draw_box(vis, d.box, TARGET_COLORS[d.cls_name.split("_")[0]], f"{d.conf:.2f}" if d.source == "target" else "")
     h, w = vis.shape[:2]
-    for k, (name, color) in enumerate((("cloth", COLOR_CLOTH), ("button", COLOR_BUTTON), ("tape", COLOR_TAPE))):
+    legend = (("cloth", COLOR_CLOTH), ("button", COLOR_BUTTON), *((f"{c} target", v) for c, v in TARGET_COLORS.items()))
+    for k, (name, color) in enumerate(legend):
         y = h - 12 - 22 * k
-        cv2.rectangle(vis, (w - 130, y - 12), (w - 114, y + 2), color, -1)
-        cv2.putText(vis, name, (w - 106, y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 3, cv2.LINE_AA)
-        cv2.putText(vis, name, (w - 106, y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1, cv2.LINE_AA)
+        cv2.rectangle(vis, (w - 150, y - 12), (w - 134, y + 2), color, -1)
+        cv2.putText(vis, name, (w - 126, y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 3, cv2.LINE_AA)
+        cv2.putText(vis, name, (w - 126, y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1, cv2.LINE_AA)
 
-    cloth_text = f"布料：已偵測（{res.cloth.conf:.2f}）" if res.cloth is not None else \
+    cloth_text = f"布料：已偵測（{res.cloth_conf:.2f}）" if res.cloth_box is not None else \
         ("布料：未偵測到，改用全圖" if CLOTH_FALLBACK_FULL_IMAGE else "布料：未偵測到")
+    tc = res.target_colors
     fs = max(18, w // 40)
-    lines = [
+    header = render_header([
         (f"{TITLE}　｜　{os.path.basename(res.image_path)}", (255, 255, 255), fs),
         (f"總秒數：{fmt_elapsed(res.elapsed_seconds)}（限時 {TIME_LIMIT:.0f} 秒）", (255, 255, 255), fs),
         (f"得分：{res.score} 分", SCORE_COLOR[res.score], int(fs * 1.6)),
         (f"判定：{res.message}", (255, 230, 150), fs),
-        (f"{cloth_text}　｜　扣上鈕扣 {res.button_count} 個、膠帶 {res.tape_count} 個", (200, 200, 200), fs),
-    ]
-    pad = fs // 2
-    header = np.full((pad * 2 + sum(int(sz * 1.35) for *_, sz in lines), w, 3), 40, np.uint8)
-    items, y = [], pad
-    for text, color, sz in lines:
-        items.append((text, (pad, y), color, sz))
-        y += int(sz * 1.35)
-    draw_texts(header, items)
+        ("扣上的鈕扣（縫線顏色）：" + "、".join(f"{COLOR_ZH[c]}（ID {COLOR_IDS[c]}）{tc[c]} 顆" for c in COLOR_IDS),
+         (200, 200, 200), fs),
+        (f"{cloth_text}　｜　button {res.button_count} 個、target {res.target_count} 個", (200, 200, 200), fs),
+    ], w)
     return np.vstack([header, vis])  # 資訊面板放在照片上方，不遮住偵測框
 
 
