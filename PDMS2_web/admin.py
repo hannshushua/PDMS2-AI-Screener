@@ -729,19 +729,6 @@ def view_compare():
     video_uid, video_file = extract_uid_filename(img_path)
     is_video = video_uid == uid and bool(video_file) and video_file.lower().endswith(".mp4")
 
-    # 盲評：醫療人員要先完成這筆的人工評分，才能看 AI 判讀結果（影片沒有 AI 結果、撿豆子是客觀計數，不擋）
-    if user_level(user) == 2 and not is_video and task_id != "Ch5-t1":
-        rk_parts = request.args.get("rk", "").split("|", 3)
-        rated = None
-        if len(rk_parts) == 4 and rk_parts[0] == uid and rk_parts[1] == task_id:
-            rated = db_exec(
-                "SELECT 1 FROM manual_score WHERE uid=%s AND task_id=%s AND test_date=%s AND `time`=%s",
-                (uid, task_id, rk_parts[2], rk_parts[3]),
-                fetch="one",
-            )
-        if not rated:
-            return "請先完成這筆測驗的人工評分，才能檢視 AI 判讀結果", 403
-
 
     content_html = ""
     if task_id == "Ch5-t1":
@@ -1018,14 +1005,11 @@ def list_scores():
                 r["compare_url"] = None
                 continue
 
-            # 盲評：醫療人員（level 2）在這筆人工評分之前，看不到 AI 分數與判讀結果，避免影響評分
-            # 撿豆子是秤的客觀計數，不套盲評
+            # 盲評：醫療人員（level 2）在這筆人工評分之前，列表看不到 AI 分數，避免影響評分
+            # 檢視結果頁照常開放，評分前要不要點進去由評分者自己決定；撿豆子是秤的客觀計數，不套盲評
             if level == 2 and r.get("manual_score") is None and r.get("score") is not None and task_id != "Ch5-t1":
                 r["score"] = None
                 r["ai_hidden"] = True
-                r["result_img_url"] = None
-                r["compare_url"] = None
-                continue
 
             if task_id == "Ch5-t1":
                 # 撿豆子沒有圖片，結果存在 data1：一律給檢視按鈕，由對照頁讀 DB
@@ -1037,7 +1021,7 @@ def list_scores():
             img_uid, img_filename = extract_uid_filename(db_path)
             if img_uid and img_uid != uid:
                 img_filename = None
-            if task_id in BUTTON_TASKS and img_filename and not img_filename.lower().endswith(".mp4"):
+            if task_id in BUTTON_TASKS and img_filename and not img_filename.lower().endswith(".mp4") and not r.get("ai_hidden"):
                 # 列表顯示用時：ok = 有秒數、none = 評分時沒有計時紀錄、unknown = 計時表查不到這筆
                 result = button_results.get((uid, task_id, _button_img_id(img_filename)))
                 if result is None:

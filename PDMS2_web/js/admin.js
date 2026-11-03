@@ -258,9 +258,7 @@
         ? `<td data-label="差異">${noManual ? '<span class="diff-badge diff-na" title="本關不做人工評分">—</span>' : diffBadge(sv, mv)}</td>`
         : '';
 
-      const imgCell = r.ai_hidden
-        ? '<span class="no-perm" title="完成人工評分後才能檢視 AI 判讀結果">評分後開放</span>'
-        : (r.compare_url || r.result_img_url)
+      const imgCell = (r.compare_url || r.result_img_url)
         ? `<a href="${r.compare_url || r.result_img_url}" target="_blank" class="btn-view" title="開新分頁檢視這次測驗的原圖與 AI 判讀結果對比">${isVideo ? '播放影片' : '🔍 檢視結果'}</a>`
         : '<span class="no-perm" title="這次測驗沒有留下結果圖">尚無圖片</span>';
 
