@@ -464,7 +464,7 @@ def manual_score_page():
         </style>
     </head>
     <body>
-        <a class="back-link" href="/html/admin.html">← 回到測驗紀錄總覽</a>
+        <a class="back-link" href="/html/admin.html" onclick="{BACK_TO_LIST_JS}">← 回到測驗紀錄總覽</a>
         <h2>人工評分：{uid} / 關卡 {task_id}</h2>
         <div class="sub-info">測驗時間 {test_date} {time_val}　｜　本頁不顯示 AI 判讀結果，請依 PDMS-2 量表自行評分</div>
         <div class="row">{photos_html}</div>
@@ -633,6 +633,10 @@ def _render_ch5_t1_result(data1: Optional[str]) -> str:
 
 
 BUTTON_TASKS = ("Ch5-t2", "Ch5-t3")
+
+# 人工評分頁與檢視頁都是從總表開新分頁：「回到總表」直接關掉這個分頁，原本的總表分頁保留篩選條件與頁數。
+# 不是由總表開的（例如直接貼網址）瀏覽器不准關，才退回載入總表。
+BACK_TO_LIST_JS = "window.close(); setTimeout(function(){location.href='/html/admin.html';}, 300); return false;"
 
 
 def _button_img_id(filename: Optional[str]) -> str:
@@ -845,7 +849,7 @@ def view_compare():
         </style>
     </head>
     <body>
-        <a class="back-link" href="/html/admin.html">← 回到測驗紀錄總覽</a>
+        <a class="back-link" href="/html/admin.html" onclick="{BACK_TO_LIST_JS}">← 回到測驗紀錄總覽</a>
         <h2>使用者: {uid} / 關卡: {task_id}</h2>
         <div class=\"sub-info\">檢視模式: {"撿豆子紀錄" if task_id == "Ch5-t1" else "多視角" if is_multi else "單一視角"}</div>
         {content_html}
