@@ -233,6 +233,15 @@
         : sv === 1 ? '<span class="score-badge score-1" title="1 分：部分達標">1</span>'
         :            '<span class="score-badge score-2" title="2 分：完全達標">2</span>';
 
+      // 鈕扣關：分數主要看時間，在分數底下標用時；沒計到時用紅字提醒
+      const timeNote = r.timer_status === 'ok'
+        ? `<div style="font-size:12px; color:#9E8F8F; margin-top:4px;">用時 ${Number(r.elapsed_sec).toFixed(1)} 秒</div>`
+        : r.timer_status === 'none'
+        ? '<div style="font-size:12px; color:#D04060; font-weight:700; margin-top:4px;" title="評分時沒有計時紀錄（可能沒按「開始測驗」），完成也只給 1 分">無計時紀錄</div>'
+        : r.timer_status === 'unknown'
+        ? '<div style="font-size:12px; color:#9E8F8F; margin-top:4px;" title="計時表每位受測者每關只保留最新一輪">查不到用時</div>'
+        : '';
+
       const mv = r.manual_score;
       const scoreHref = `/manual-score?rk=${encodeURIComponent(r.row_key)}`;
       // 撿豆子由電子秤客觀計數，不做人工評分，也不算差異
@@ -261,7 +270,7 @@
           <td data-label="受測者編號" style="font-weight:700; color:#5C4E4E;">${r.uid}</td>
           <td data-label="受測者姓名">${r.name || '—'}</td>
           <td data-label="測驗項目" style="font-weight:700;">${r.task_id || ''}</td>
-          <td data-label="AI 評分">${scoreCell}</td>
+          <td data-label="AI 評分">${scoreCell}${timeNote}</td>
           ${manualCell}
           ${diffCell}
           <td data-label="測驗日期" style="font-weight:600; color:#7A6060;">${dateDisplay}</td>

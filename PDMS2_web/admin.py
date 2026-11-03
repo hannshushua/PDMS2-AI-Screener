@@ -632,6 +632,84 @@ def _render_ch5_t1_result(data1: Optional[str]) -> str:
     """ + _CH5_T1_CHART_JS.replace("__DATA__", chart_data)
 
 
+BUTTON_TASKS = ("Ch5-t2", "Ch5-t3")
+
+
+def _button_img_id(filename: Optional[str]) -> str:
+    """kid/<uid>/<img_id>_result.jpg → img_id（小寫，ch5-t2 / Ch5-t2 都可能出現）"""
+    stem = os.path.splitext(filename or "")[0]
+    if stem.endswith("_result"):
+        stem = stem[: -len("_result")]
+    return stem.lower()
+
+
+def _load_button_results(uid: Optional[str] = None) -> dict:
+    """鈕扣關的秒數與判定存在同學評分程式建的 ch5_button_timer（每位受測者每關只留最新一輪）。
+    回傳 {(uid, task_id, img_id): result_json 解析後的 dict}；表還沒建就回空的。"""
+    sql = "SELECT uid, task_id, img_id, result_json FROM ch5_button_timer WHERE status='evaluated'"
+    params = ()
+    if uid:
+        sql += " AND uid=%s"
+        params = (uid,)
+    try:
+        rows = db_exec(sql, params, fetch="all") or []
+    except pymysql.err.ProgrammingError:  # 1146 表不存在：評分程式還沒跑過
+        return {}
+    out = {}
+    for r in rows:
+        try:
+            out[(r["uid"], r["task_id"], (r["img_id"] or "").lower())] = json.loads(r["result_json"] or "")
+        except ValueError:
+            continue
+    return out
+
+
+def _render_button_result(task_id: str, result: Optional[dict]) -> str:
+    """鈕扣關（Ch5-t2 / Ch5-t3）摘要：用時、時限、偵測結果與判定文字。"""
+    if not result:
+        return ('<div class="row"><div class="box" style="width:80%;"><h3>計時與判定</h3>'
+                '<p>查不到這筆的計時資料。計時表每位受測者每關只保留最新一輪，較早的測驗或評分程式上線前的紀錄會沒有。</p></div></div>')
+
+    elapsed = result.get("elapsed_seconds")
+    limit = result.get("time_limit")
+    limit_txt = f"{limit:g} 秒" if isinstance(limit, (int, float)) else "—"
+    if task_id == "Ch5-t3":
+        colors = result.get("target_colors") or {}
+        detected = f"紅 {colors.get('red', 0)}・綠 {colors.get('green', 0)}・藍 {colors.get('blue', 0)}"
+    else:
+        detected = f"布條上還有 {result.get('button_count', '—')} 顆"
+    if not result.get("cloth_detected"):
+        detected = "沒抓到布條"
+
+    no_timer = elapsed is None
+    cards = "".join(
+        f'<div class="btn-card"><div class="btn-label">{label}</div><div class="btn-value">{escape(str(value))}</div></div>'
+        for label, value in (
+            ("分數", result.get("score", "—")),
+            ("用時", "無計時紀錄" if no_timer else f"{elapsed:.1f} 秒"),
+            ("時限（2 分門檻）", limit_txt),
+            ("偵測結果", detected),
+        )
+    )
+    note = ('<p style="color:#D04060;font-weight:700;">這筆沒有計時紀錄（可能沒按「開始測驗」），'
+            '評分程式無法確認是否在時限內，完成也只給 1 分。</p>') if no_timer else ""
+    return f"""
+    <style>
+      .btn-cards {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 14px; }}
+      .btn-card {{ background: #FFFAF5; border: 2px solid #F0E6D2; border-radius: 12px; padding: 12px; }}
+      .btn-label {{ color: #9E8F8F; font-size: 14px; font-weight: 700; }}
+      .btn-value {{ color: #2c3e50; font-size: 22px; font-weight: 800; margin-top: 4px; }}
+      .btn-criteria {{ font-size: 17px; font-weight: 700; padding: 12px; border-radius: 10px; background: #E7F8F4; color: #0D7A66; }}
+    </style>
+    <div class="row"><div class="box" style="width:80%;">
+      <h3>計時與判定</h3>
+      <div class="btn-cards">{cards}</div>
+      <div class="btn-criteria">{escape(result.get("message") or "—")}</div>
+      {note}
+    </div></div>
+    """
+
+
 @app.route("/view-compare")
 def view_compare():
     user = current_user()
@@ -748,6 +826,9 @@ def view_compare():
             <div class=\"box\"><h3>分析結果 (Result)</h3><img src=\"{result_src}\" onerror=\"this.onerror=null;this.src='/images/no_image.png';\"></div>
         </div>
         """
+        if task_id in BUTTON_TASKS:
+            result = _load_button_results(uid).get((uid, task_id, base_stem.lower()))
+            content_html += _render_button_result(task_id, result)
 
     html = f"""
     <!DOCTYPE html>
@@ -925,6 +1006,7 @@ def list_scores():
                 yield r
 
         rows = list(_date_to_str(all_rows_raw))
+        button_results = _load_button_results() if any(r.get("task_id") in BUTTON_TASKS for r in rows) else {}
         for r in rows:
             uid = (r.get("uid") or "").strip()
             task_id = (r.get("task_id") or "").strip()
@@ -955,6 +1037,16 @@ def list_scores():
             img_uid, img_filename = extract_uid_filename(db_path)
             if img_uid and img_uid != uid:
                 img_filename = None
+            if task_id in BUTTON_TASKS and img_filename and not img_filename.lower().endswith(".mp4"):
+                # 列表顯示用時：ok = 有秒數、none = 評分時沒有計時紀錄、unknown = 計時表查不到這筆
+                result = button_results.get((uid, task_id, _button_img_id(img_filename)))
+                if result is None:
+                    r["timer_status"] = "unknown"
+                elif result.get("elapsed_seconds") is None:
+                    r["timer_status"] = "none"
+                else:
+                    r["timer_status"] = "ok"
+                    r["elapsed_sec"] = result["elapsed_seconds"]
             if img_filename:
                 signed_img = build_signed_image_url(uid, img_filename)
                 r["result_img_url"] = signed_img
