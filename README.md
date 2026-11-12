@@ -29,6 +29,8 @@
 - [114年度「為桃園做研究」桃園市政府大專校院學生創新點子及研究實作競賽 金質研究獎](https://sccdc.tycg.gov.tw/News_Content.aspx?n=16792&s=1600221#lg=1&slide=1)
 - [2025 全國 AI 專題創意競賽 佳作](https://phpweb2.nutn.edu.tw/ilt/wordpress/wp-content/uploads/2025/12/%E6%B1%BA%E8%B3%BD%E7%B5%90%E6%9E%9C.pdf)
 - [智創未來：2026生成式AI創意設計競賽 銅牌獎](picture/智創未來：2026生成式AI創意設計競賽.png)
+- [2026 全國大專校院智慧創新暨跨域整合創作競賽 智慧機器科技組 第三名](picture/2026全國大專校院智慧創新暨跨域整合創作競賽.pdf)
+- [第 31 屆大專校院資訊應用服務創新競賽（Innoserve）資訊應用組六 佳作（IP6-11）](https://innoserveawards.tca.org.tw/award.aspx)
 
 ## 目前投稿
 
