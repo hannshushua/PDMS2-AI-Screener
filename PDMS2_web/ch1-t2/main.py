@@ -203,7 +203,7 @@ def analyze_image_side(img_path, model):
     results = model.predict(source=frame, conf=CONF_SIDE, verbose=False)
     yolo_boxes = results[0].boxes.xyxy.cpu().numpy() if results[0].boxes is not None else []
     masks = get_sam_masks_from_boxes(frame, yolo_boxes)
-    
+
     centroids = []
     mask_data = [] # 用來暫存 mask 與其對應的屬性
     SCORE = 2
@@ -263,7 +263,9 @@ def analyze_image_side(img_path, model):
     # ====== 5. 縫隙檢查與形狀分析邏輯維持原樣 ======
     # GAP_RATIO：縫隙需超過積木寬度的幾成才算「有縫隙」
     # 本關「有縫隙」才拿 2 分，調低 = 更容易認定有縫 = 對小朋友寬鬆
-    GAP_RATIO = 0.1
+    # 側邊的積木會露出側面，遮罩會吃掉一部分縫，所以肉眼明顯的縫量出來常只有 0.05~0.1 W；
+    # 實測緊貼的積木 <= 0.03 W，看得到背景的縫 >= 0.047 W，取中間 0.04
+    GAP_RATIO = 0.04
     # 滿分需要幾對相鄰積木有縫（底層 2 對 + 中層 1 對，全部共 3 對）
     # 要三對全中才給 2 分，不足則 1 分
     MIN_GAP_PAIRS = 3
